@@ -14,6 +14,7 @@
     <properties>
         <java.version>25</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.outputTimestamp>2026-03-07T00:00:00Z</project.build.outputTimestamp>
         <spring.boot.version>4.0.3</spring.boot.version>
         <okhttp.version>5.3.2</okhttp.version>
         <playwright.version>1.49.0</playwright.version>
@@ -23,6 +24,7 @@
         <spotbugs.version>4.9.8.2</spotbugs.version>
         <pmd.version>3.28.0</pmd.version>
         <formatter.maven.plugin.version>2.29.0</formatter.maven.plugin.version>
+        <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.4</maven.surefire.plugin.version>
         <maven.antrun.plugin.version>3.2.0</maven.antrun.plugin.version>
@@ -96,6 +98,14 @@
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven.jar.plugin.version}</version>
+                    <configuration>
+                        <outputTimestamp>${project.build.outputTimestamp}</outputTimestamp>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.plugin.version}</version>
                 </plugin>
@@ -109,6 +119,7 @@
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>${maven.shade.plugin.version}</version>
                     <configuration>
+                        <outputTimestamp>${project.build.outputTimestamp}</outputTimestamp>
                         <createDependencyReducedPom>false</createDependencyReducedPom>
                         <filters>
                             <filter>
@@ -179,6 +190,10 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

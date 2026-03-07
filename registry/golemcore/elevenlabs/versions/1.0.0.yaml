@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/elevenlabs/1.0.0/golemcore-elevenlabs-plugin-1.0.0.jar"
-checksumSha256: "4cf567468a229e3dfd04cc963814134c49eb8d8acb6f84f52f2c71dc64c6bf1a"
+checksumSha256: "57e128e3980516989595c0b6d17c733e48495e3329d310ce4d987ab37bab1862"
 publishedAt: "2026-03-05T21:58:56Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginBootstrap

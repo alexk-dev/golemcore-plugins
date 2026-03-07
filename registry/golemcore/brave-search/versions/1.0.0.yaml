@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/brave-search/1.0.0/golemcore-brave-search-plugin-1.0.0.jar"
-checksumSha256: "8e5eaf44446a492dc25f9c6992a4fe04a788bcc4eedcab180113429acc4803bb"
+checksumSha256: "93253263877e85d35695e612e267a60b6444baf262f5416d641a4b82216b4c66"
 publishedAt: "2026-03-06T19:26:15Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.bravesearch.BraveSearchPluginBootstrap
