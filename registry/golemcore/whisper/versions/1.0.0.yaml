@@ -1,0 +1,13 @@
+id: golemcore/whisper
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/whisper/1.0.0/golemcore-whisper-plugin-1.0.0.jar"
+checksumSha256: "35a829ea31443b98dbd383a55ff1eaf62b89bc8643b292177358020b3fe809bf"
+publishedAt: "2026-03-05T21:58:56Z"
+sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
+entrypoint: me.golemcore.plugins.golemcore.whisper.WhisperPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/whisper"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

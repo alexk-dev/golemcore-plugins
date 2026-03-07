@@ -1,0 +1,13 @@
+id: golemcore/weather
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/weather/1.0.0/golemcore-weather-plugin-1.0.0.jar"
+checksumSha256: "b80eacfb82e4ea7d60c582633d1eeeacc9a077ec8ef8260b13fce8bac160a2ec"
+publishedAt: "2026-03-06T19:26:15Z"
+sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
+entrypoint: me.golemcore.plugins.golemcore.weather.WeatherPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/weather"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

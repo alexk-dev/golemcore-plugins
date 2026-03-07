@@ -1,0 +1,12 @@
+id: golemcore/weather
+provider: golemcore
+name: weather
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.weather.WeatherPluginBootstrap
+description: Open-Meteo weather tool plugin with no external credentials required.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/weather
+license: Apache-2.0
+maintainers:
+  - alexk-dev

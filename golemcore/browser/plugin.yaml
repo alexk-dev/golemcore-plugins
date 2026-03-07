@@ -1,0 +1,12 @@
+id: golemcore/browser
+provider: golemcore
+name: browser
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.browser.BrowserPluginBootstrap
+description: Playwright-backed browser automation tool with screenshot support.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browser
+license: Apache-2.0
+maintainers:
+  - alexk-dev

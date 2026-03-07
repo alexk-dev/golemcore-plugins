@@ -1,0 +1,12 @@
+id: golemcore/mail
+provider: golemcore
+name: mail
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.mail.MailPluginBootstrap
+description: IMAP read and SMTP send tool plugin for mailbox integrations.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/mail
+license: Apache-2.0
+maintainers:
+  - alexk-dev

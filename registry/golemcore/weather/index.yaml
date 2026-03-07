@@ -1,0 +1,7 @@
+id: golemcore/weather
+owner: golemcore
+name: weather
+latest: 1.0.0
+versions:
+  - 1.0.0
+source: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/weather

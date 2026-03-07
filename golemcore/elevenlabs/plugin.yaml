@@ -1,0 +1,12 @@
+id: golemcore/elevenlabs
+provider: golemcore
+name: elevenlabs
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginBootstrap
+description: ElevenLabs-backed STT/TTS provider plugin.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/elevenlabs
+license: Apache-2.0
+maintainers:
+  - alexk-dev

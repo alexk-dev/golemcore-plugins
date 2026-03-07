@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+        Spring/DI wiring stores collaborator references in final fields.
+        SpotBugs reports EI_EXPOSE_REP* on constructor injection even though
+        these are service references, not mutable value objects exposed as API.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2" />
+        <Or>
+            <Class name="~me\.golemcore\.bot\.adapter\..*" />
+            <Class name="~me\.golemcore\.bot\.domain\.service\..*" />
+            <Class name="~me\.golemcore\.bot\.infrastructure\..*" />
+            <Class name="~me\.golemcore\.plugins\..*" />
+        </Or>
+    </Match>
+</FindBugsFilter>

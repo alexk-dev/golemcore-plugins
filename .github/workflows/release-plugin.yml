@@ -1,0 +1,111 @@
+name: Release Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_id:
+        description: Canonical plugin id
+        required: true
+        type: choice
+        options:
+          - golemcore/telegram
+          - golemcore/elevenlabs
+          - golemcore/whisper
+      bump:
+        description: SemVer bump to apply
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+      version_override:
+        description: Explicit version override for backfills or exceptional releases
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.plugin_id }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure workflow runs on default branch
+        if: github.ref_name != github.event.repository.default_branch
+        run: |
+          echo "Run releases from ${GITHUB_EVENT_REPOSITORY_DEFAULT_BRANCH:-the default branch} only."
+          exit 1
+
+      - name: Checkout plugins repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load repository build settings
+        id: repo
+        run: python3 scripts/plugins_repo.py repo-settings --github-output "$GITHUB_OUTPUT"
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.repo.outputs.java_version }}
+          cache: maven
+
+      - name: Validate plugin repository structure
+        run: python3 scripts/plugins_repo.py validate
+
+      - name: Prepare release payload
+        id: release
+        shell: bash
+        run: |
+          args=(
+            python3 scripts/plugins_repo.py release
+            --plugin "${{ inputs.plugin_id }}"
+            --bump "${{ inputs.bump }}"
+            --github-output "$GITHUB_OUTPUT"
+          )
+          if [[ -n "${{ inputs.version_override }}" ]]; then
+            args+=(--version-override "${{ inputs.version_override }}")
+          fi
+          "${args[@]}"
+
+      - name: Configure Git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit release metadata
+        run: |
+          git add \
+            "${{ steps.release.outputs.pom_path }}" \
+            "${{ steps.release.outputs.plugin_yaml_path }}" \
+            "${{ steps.release.outputs.registry_index_path }}" \
+            "${{ steps.release.outputs.registry_version_path }}"
+          git commit -m "chore(release): ${{ steps.release.outputs.plugin_id }} v${{ steps.release.outputs.version }} [skip ci]"
+
+      - name: Create Git tag
+        run: git tag "${{ steps.release.outputs.tag_name }}"
+
+      - name: Push release commit and tag
+        run: |
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
+          git push origin "${{ steps.release.outputs.tag_name }}"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          name: ${{ steps.release.outputs.release_name }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.release.outputs.artifact_path }}
+            ${{ steps.release.outputs.artifact_sha256_path }}
+            ${{ steps.release.outputs.registry_version_path }}

@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request' || !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout plugins repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load repository build settings
+        id: repo
+        run: python3 scripts/plugins_repo.py repo-settings --github-output "$GITHUB_OUTPUT"
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.repo.outputs.java_version }}
+          cache: maven
+
+      - name: Validate plugin repository structure
+        run: python3 scripts/plugins_repo.py validate
+
+      - name: Build, test, and verify code quality
+        run: mvn -B -ntp -P strict verify
+
+      - name: Validate registry checksums against built artifacts
+        run: python3 scripts/plugins_repo.py validate --check-local-artifacts
+
+      - name: Upload packaged artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golemcore-plugins-dist
+          path: dist/**
+          if-no-files-found: ignore
