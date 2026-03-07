@@ -1,0 +1,13 @@
+id: golemcore/mail
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/mail/1.0.0/golemcore-mail-plugin-1.0.0.jar"
+checksumSha256: "cfbdb56541b30639859213c584c0cb6b12423abbbac694ae4a21be51b5d9aad4"
+publishedAt: "2026-03-06T19:26:15Z"
+sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
+entrypoint: me.golemcore.plugins.golemcore.mail.MailPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/mail"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

@@ -1,0 +1,13 @@
+id: golemcore/brave-search
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/brave-search/1.0.0/golemcore-brave-search-plugin-1.0.0.jar"
+checksumSha256: "c599341be79487742791957453e72171289113e8dfd732c01ac74dd86f7965c0"
+publishedAt: "2026-03-06T19:26:15Z"
+sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
+entrypoint: me.golemcore.plugins.golemcore.bravesearch.BraveSearchPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brave-search"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

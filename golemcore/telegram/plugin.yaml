@@ -1,0 +1,12 @@
+id: golemcore/telegram
+provider: golemcore
+name: telegram
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.telegram.TelegramPluginBootstrap
+description: Telegram channel, invite onboarding, confirmations, and plan approval integration.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/telegram
+license: Apache-2.0
+maintainers:
+  - alexk-dev
