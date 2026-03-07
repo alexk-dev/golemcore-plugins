@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/weather/1.0.0/golemcore-weather-plugin-1.0.0.jar"
-checksumSha256: "ad8d72382b69c64528fceedd352042590de9519e9f55d26920ead5b1c4b2d5ac"
+checksumSha256: "8669df196ad813aff1cce495afd778678f3803ba32143dc2c599bf3a0b978728"
 publishedAt: "2026-03-06T19:26:15Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.weather.WeatherPluginBootstrap

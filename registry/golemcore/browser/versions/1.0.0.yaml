@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/browser/1.0.0/golemcore-browser-plugin-1.0.0.jar"
-checksumSha256: "f9c0d4a5193d7051d70adba363d0acabb8966e3b7ceed013d3a7bbb4300a6b34"
+checksumSha256: "2c64c0cdbdf5d458d6faa8977ea70164a8b75c2f51b42274788cbed994c11127"
 publishedAt: "2026-03-06T19:26:15Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.browser.BrowserPluginBootstrap

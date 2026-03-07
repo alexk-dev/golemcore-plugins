@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/telegram/1.0.0/golemcore-telegram-plugin-1.0.0.jar"
-checksumSha256: "27137d5c19446e4f51bf41b89fa7de10191e7544e5a036e44e0c952964247def"
+checksumSha256: "47fd6a5562170ac692f8f89685d380cf42430e5ccac39ff4f53f26fec169618f"
 publishedAt: "2026-03-05T21:58:56Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.telegram.TelegramPluginBootstrap
