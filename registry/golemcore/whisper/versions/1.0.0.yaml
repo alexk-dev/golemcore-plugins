@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/whisper/1.0.0/golemcore-whisper-plugin-1.0.0.jar"
-checksumSha256: "35a829ea31443b98dbd383a55ff1eaf62b89bc8643b292177358020b3fe809bf"
+checksumSha256: "b4bfeadf9cb9dba6318f08ac6e6b549575c7d6077425b966f908b5259391c8da"
 publishedAt: "2026-03-05T21:58:56Z"
 sourceCommit: "71676e94a880fca5412ec36f71cf73f5b4ad36b3"
 entrypoint: me.golemcore.plugins.golemcore.whisper.WhisperPluginBootstrap
