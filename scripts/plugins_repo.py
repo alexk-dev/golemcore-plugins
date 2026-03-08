@@ -23,6 +23,7 @@ CONVENTIONAL_RE = re.compile(
 SUPPORTED_COMMIT_TYPES = {"feat", "fix", "perf", "refactor", "build", "ci", "docs", "test", "chore", "revert", "release"}
 PATCH_BUMP_TYPES = {"fix", "perf", "refactor", "build", "revert"}
 NON_BUMP_TYPES = {"ci", "docs", "test", "chore", "release"}
+COMMON_RELEASE_PATHS = ("pom.xml", "extension-api", "runtime-api", "misc")
 
 
 @dataclass(frozen=True)
@@ -404,6 +405,103 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def release_tag_exists(spec: PluginSpec, version: str) -> bool:
+    tag = spec.release_tag(version)
+    result = subprocess.run(
+        ["git", "rev-parse", "-q", "--verify", f"refs/tags/{tag}"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def latest_release_tag(spec: PluginSpec) -> tuple[str | None, str | None]:
+    tags = run_command("git", "tag", "--list", f"{spec.owner}-{spec.name}-v*").splitlines()
+    latest_tag = None
+    latest_version = None
+    for tag in tags:
+        version = tag.removeprefix(f"{spec.owner}-{spec.name}-v")
+        if not SEMVER_RE.fullmatch(version):
+            continue
+        if latest_version is None or compare_versions(version, latest_version) > 0:
+            latest_version = version
+            latest_tag = tag
+    return latest_tag, latest_version
+
+
+def read_changed_paths(range_spec: str) -> list[str]:
+    diff_output = run_command("git", "diff", "--name-only", range_spec)
+    return [line.strip() for line in diff_output.splitlines() if line.strip()]
+
+
+def release_commit_paths(spec: PluginSpec) -> list[str]:
+    return [
+        spec.module_path,
+        spec.registry_dir.relative_to(ROOT).as_posix(),
+        *COMMON_RELEASE_PATHS,
+    ]
+
+
+def infer_auto_bump_candidate(spec: PluginSpec) -> str | None:
+    latest_tag, _ = latest_release_tag(spec)
+    if latest_tag is None:
+        return "initial"
+
+    range_spec = f"{latest_tag}..HEAD"
+    commits = read_commit_range(range_spec, *release_commit_paths(spec))
+    if not commits:
+        return None
+
+    found_minor = False
+    found_patch = False
+    for commit in commits:
+        if commit.breaking:
+            return "major"
+        if commit.type == "feat":
+            found_minor = True
+        elif commit.type in PATCH_BUMP_TYPES:
+            found_patch = True
+
+    if found_minor:
+        return "minor"
+    if found_patch:
+        return "patch"
+    return None
+
+
+def collect_release_candidates(range_spec: str) -> list[PluginSpec]:
+    plugins = discover_plugins()
+    if not plugins:
+        return []
+
+    changed_paths = read_changed_paths(range_spec)
+    has_common_release_change = any(
+        path == common_path or path.startswith(f"{common_path}/") for path in changed_paths for common_path in COMMON_RELEASE_PATHS
+    )
+
+    candidates: list[PluginSpec] = []
+    for spec in plugins.values():
+        if not release_tag_exists(spec, spec.version):
+            candidates.append(spec)
+            continue
+
+        plugin_changed = any(path == spec.module_path or path.startswith(f"{spec.module_path}/") for path in changed_paths)
+        if not has_common_release_change and not plugin_changed:
+            continue
+
+        if infer_auto_bump_candidate(spec) is not None:
+            candidates.append(spec)
+
+    return sorted(candidates, key=lambda item: item.plugin_id)
+
+
+def emit_release_plan(rev_range: str) -> None:
+    for spec in collect_release_candidates(rev_range):
+        print(spec.plugin_id)
+
+
 def sync_local_registry(plugin_id: str | None) -> None:
     plugins = discover_plugins()
     if not plugins:
@@ -579,27 +677,14 @@ def validate_repo(check_local_artifacts: bool = False) -> None:
 
 
 def infer_auto_bump(spec: PluginSpec) -> str:
-    tags = run_command("git", "tag", "--list", f"{spec.owner}-{spec.name}-v*").splitlines()
-    latest_tag = None
-    latest_version = None
-    for tag in tags:
-        version = tag.removeprefix(f"{spec.owner}-{spec.name}-v")
-        if not SEMVER_RE.fullmatch(version):
-            continue
-        if latest_version is None or compare_versions(version, latest_version) > 0:
-            latest_version = version
-            latest_tag = tag
+    latest_tag, _ = latest_release_tag(spec)
     if latest_tag is None:
         raise SystemExit(
             f"Cannot infer release bump for {spec.plugin_id}: no prior release tag found. Use --version-override or an explicit bump."
         )
 
     range_spec = f"{latest_tag}..HEAD"
-    commits = read_commit_range(
-        range_spec,
-        spec.module_path,
-        spec.registry_dir.relative_to(ROOT).as_posix(),
-    )
+    commits = read_commit_range(range_spec, *release_commit_paths(spec))
     if not commits:
         raise SystemExit(f"No changes detected for {spec.plugin_id} since {latest_tag}")
 
@@ -671,40 +756,48 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
 
     validate_repo()
 
+    current_tag_exists = release_tag_exists(spec, spec.version)
     current_versions = read_versions(spec.registry_index_path)
     if version_override:
         new_version = version_override
         if not SEMVER_RE.fullmatch(new_version):
             raise SystemExit(f"Invalid version override: {new_version}")
+    elif bump == "auto" and not current_tag_exists:
+        new_version = spec.version
     else:
         resolved_bump = infer_auto_bump(spec) if bump == "auto" else bump
         new_version = bump_version(spec.version, resolved_bump)
 
-    if new_version in current_versions:
+    if new_version in current_versions and new_version != spec.version:
         raise SystemExit(f"Version {new_version} already exists in {spec.registry_index_path}")
 
-    write_child_pom_version(spec.pom_path, new_version)
-    updated_spec = discover_plugins()[plugin_id]
-    write_text(updated_spec.plugin_yaml_path, render_plugin_yaml(updated_spec, new_version))
+    if new_version != spec.version:
+        write_child_pom_version(spec.pom_path, new_version)
+        updated_spec = discover_plugins()[plugin_id]
+        write_text(updated_spec.plugin_yaml_path, render_plugin_yaml(updated_spec, new_version))
 
-    next_spec = discover_plugins()[plugin_id]
-    next_versions = sorted([*current_versions, new_version], key=semver_key)
-    write_text(next_spec.registry_index_path, render_registry_index(next_spec, next_versions))
+        next_spec = discover_plugins()[plugin_id]
+        next_versions = sorted([*current_versions, new_version], key=semver_key)
+        write_text(next_spec.registry_index_path, render_registry_index(next_spec, next_versions))
+    else:
+        next_spec = spec
 
-    run_command(
+    build_command = [
         "mvn",
         "-B",
         "-ntp",
         "-f",
         str(ROOT / "pom.xml"),
-        "-P",
-        "strict",
         "-pl",
         f":{next_spec.artifact_id}",
         "-am",
-        "verify",
-        capture_output=False,
-    )
+    ]
+    if new_version == spec.version:
+        build_command.append("package")
+    else:
+        build_command.extend(["-P", "strict", "verify"])
+
+    run_command(*build_command, capture_output=False)
 
     artifact_path = ROOT / next_spec.dist_artifact_relative_path(new_version)
     if not artifact_path.exists():
@@ -714,10 +807,11 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
     checksum_path = artifact_path.with_suffix(".jar.sha256")
     checksum_path.write_text(f"{checksum}  {artifact_path.name}\n", encoding="utf-8")
 
-    published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    source_commit = run_command("git", "rev-parse", "HEAD")
     version_path = next_spec.versions_dir / f"{new_version}.yaml"
-    write_text(version_path, render_registry_version(next_spec, new_version, checksum, published_at, source_commit))
+    if new_version != spec.version:
+        published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        source_commit = run_command("git", "rev-parse", "HEAD")
+        write_text(version_path, render_registry_version(next_spec, new_version, checksum, published_at, source_commit))
 
     write_github_output(
         github_output,
@@ -786,6 +880,11 @@ def parse_args() -> argparse.Namespace:
         help="Refresh current registry version metadata from locally built dist artifacts.",
     )
     sync_parser.add_argument("--plugin", help="Canonical plugin id, e.g. golemcore/browser")
+    release_plan_parser = subparsers.add_parser(
+        "release-plan",
+        help="Print plugin ids that should be released for a given Git revision range.",
+    )
+    release_plan_parser.add_argument("--rev-range", required=True, help="Git revision range, e.g. <before>..<after>")
     return parser.parse_args()
 
 
@@ -806,6 +905,9 @@ def main() -> int:
         return 0
     if args.command == "sync-local-registry":
         sync_local_registry(args.plugin)
+        return 0
+    if args.command == "release-plan":
+        emit_release_plan(args.rev_range)
         return 0
     raise AssertionError(f"Unsupported command: {args.command}")
 
