@@ -10,7 +10,9 @@ Follow them for `extension-api/`, `runtime-api/`, and `golemcore/*` modules unle
 - Each plugin is versioned independently with SemVer.
 - The source of truth for the current plugin version is the child module `pom.xml`.
 - `plugin.yaml` and `registry/` metadata must match the module version.
-- Current `registry/<owner>/<plugin>/versions/<current>.yaml` must point at the local `dist/...jar` artifact and its `checksumSha256` must match the built jar.
+- Released plugin versions are immutable. Never replace the jar, checksum, or metadata of an already released `registry/<owner>/<plugin>/versions/<released>.yaml`.
+- Code changes to a released plugin must ship as a new SemVer version. Do not rewrite the checksum of an existing released version in a PR.
+- The checksum recorded in `registry/<owner>/<plugin>/versions/<new-version>.yaml` is derived from the artifact built by the release workflow from the repository state on the default branch.
 - Parent `pom.xml` is repository-level and is not used for plugin release numbering.
 - `extension-api/` produces `me.golemcore.plugins:golemcore-plugin-extension-api`, the extension contract shared by all plugins in this repository.
 - `runtime-api/` produces `me.golemcore.plugins:golemcore-plugin-runtime-api`, the isolated engine-provided runtime interface layer consumed by plugins.
@@ -82,8 +84,10 @@ The repository pipelines are:
   - validates commit subjects in PRs and on `main`
 - `CI`
   - validates repository structure and builds `extension-api/`, `runtime-api/`, and all plugins
+- `CI / release_main`
+  - after a merge to the default branch, determines which plugins require a release, bumps versions, and publishes release artifacts
 - `Release Plugin`
-  - bumps, packages, tags, and publishes one plugin release
+  - manually backfills or forces one plugin release from the default branch
 
 The `CI` pipeline validates:
 
@@ -92,25 +96,26 @@ The `CI` pipeline validates:
 - `golemcore-plugin-runtime-api` runtime boundary availability
 - mandatory formatter wiring for `extension-api/`, `runtime-api/`, and `golemcore/*`
 - plugin manifest and module version alignment
-- registry checksum consistency against locally built `dist/` artifacts
 - Maven build/tests plus mandatory PMD and SpotBugs checks (`-P strict verify`)
 - plugin package and shaded artifact generation
+
+The normal PR/build pipeline does not compare locally built jars against checksums of already released versions in `registry/`. That checksum is release metadata, not a PR maintenance task.
 
 CI builds `golemcore-plugin-extension-api` inside the same reactor, so the plugins repository no longer needs to check out or install `golemcore-bot` during verification.
 
 ## Releases
 
-Plugin releases are produced with the manual GitHub Actions workflow `Release Plugin`.
+Normal plugin releases are produced automatically after a merge to the default branch. The `CI / release_main` job:
 
-The workflow:
+1. determines which plugins need a release from the merged commit range
+2. derives the SemVer bump from conventional commits since the last plugin tag
+3. bumps the plugin version
+4. packages the plugin from the repository state on the default branch
+5. writes fresh `registry/` metadata, including checksum and published timestamp, from that built artifact
+6. publishes the jar to GitHub Packages
+7. commits release metadata, tags the release, and publishes the jar plus checksum file to GitHub Releases
 
-1. validates the repository
-2. bumps one plugin version
-3. packages that plugin
-4. refreshes `registry/` metadata with checksum and published timestamp
-5. commits the release metadata
-6. tags the release
-7. publishes the jar and checksum file to GitHub Releases
+The manual GitHub Actions workflow `Release Plugin` exists for backfills or exceptional releases from the default branch. It follows the same packaging and checksum rules as the automatic release flow.
 
 For local marketplace development after rebuilding plugin jars without a version bump, refresh registry metadata with:
 
@@ -119,6 +124,8 @@ For local marketplace development after rebuilding plugin jars without a version
 Then verify the result with:
 
 - `python3 scripts/plugins_repo.py validate --check-local-artifacts`
+
+This local registry sync is only for local development or unreleased artifacts. Do not use it to rewrite the checksum of an already released version in a PR.
 
 For normal releases use `bump=auto`. It derives `major` / `minor` / `patch` from conventional commits since the last plugin tag.
 
