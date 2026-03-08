@@ -14,20 +14,28 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +71,7 @@ class TelegramAdapterHandleMessageTest {
         RuntimeConfigService runtimeConfigService = mock(RuntimeConfigService.class);
         when(runtimeConfigService.isTelegramEnabled()).thenReturn(true);
         when(runtimeConfigService.getTelegramToken()).thenReturn("test-token");
+        when(runtimeConfigService.isTelegramTranscribeIncomingEnabled()).thenReturn(false);
         telegramSessionService = mock(TelegramSessionService.class);
         when(telegramSessionService.resolveActiveConversationKey(anyString()))
                 .thenReturn("conv-active");
@@ -224,10 +233,7 @@ class TelegramAdapterHandleMessageTest {
         Update update = createTextUpdate(123L, 100L, "Hello world");
         adapter.consume(update);
 
-        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
-        verify(messageHandler).accept(captor.capture());
-
-        Message msg = captor.getValue();
+        Message msg = captureInboundMessage();
         assertEquals("Hello world", msg.getContent());
         assertEquals("conv-active", msg.getChatId());
         assertEquals("123", msg.getSenderId());
@@ -235,6 +241,72 @@ class TelegramAdapterHandleMessageTest {
         assertEquals("telegram", msg.getChannelType());
         assertEquals("100", msg.getMetadata().get(ContextAttributes.TRANSPORT_CHAT_ID));
         assertEquals("conv-active", msg.getMetadata().get(ContextAttributes.CONVERSATION_KEY));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldAttachPhotoAsImageAttachment() throws Exception {
+        adapter = spy(adapter);
+        adapter.onMessage(messageHandler);
+        doReturn(new byte[] { 1, 2, 3 }).when(adapter).downloadTelegramFile("photo-file-id");
+
+        Update update = createPhotoUpdate(123L, 100L, null, "photo-file-id");
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        Object attachmentsRaw = msg.getMetadata().get("attachments");
+        assertNotNull(attachmentsRaw);
+        Map<String, Object> attachment = ((List<Map<String, Object>>) attachmentsRaw).get(0);
+        assertEquals("image", attachment.get("type"));
+        assertEquals("image/jpeg", attachment.get("mimeType"));
+        assertEquals("telegram-photo.jpg", attachment.get("name"));
+        assertEquals(Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 }), attachment.get("dataBase64"));
+    }
+
+    @Test
+    void shouldUseCaptionAsContentForPhotoMessage() throws Exception {
+        adapter = spy(adapter);
+        adapter.onMessage(messageHandler);
+        doReturn(new byte[] { 9, 8, 7 }).when(adapter).downloadTelegramFile("photo-file-id");
+
+        Update update = createPhotoUpdate(123L, 100L, "Describe this image", "photo-file-id");
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        assertEquals("Describe this image", msg.getContent());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldAttachImageDocumentAsImageAttachment() throws Exception {
+        adapter = spy(adapter);
+        adapter.onMessage(messageHandler);
+        doReturn(new byte[] { 4, 5, 6 }).when(adapter).downloadTelegramFile("document-file-id");
+
+        Update update = createImageDocumentUpdate(123L, 100L, "diagram.png", "image/png", "document-file-id");
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        Object attachmentsRaw = msg.getMetadata().get("attachments");
+        assertNotNull(attachmentsRaw);
+        Map<String, Object> attachment = ((List<Map<String, Object>>) attachmentsRaw).get(0);
+        assertEquals("image", attachment.get("type"));
+        assertEquals("image/png", attachment.get("mimeType"));
+        assertEquals("diagram.png", attachment.get("name"));
+        assertEquals(Base64.getEncoder().encodeToString(new byte[] { 4, 5, 6 }), attachment.get("dataBase64"));
+    }
+
+    @Test
+    void shouldNotOverrideModelTierForImageAttachment() throws Exception {
+        adapter = spy(adapter);
+        adapter.onMessage(messageHandler);
+        doReturn(new byte[] { 1, 1, 1 }).when(adapter).downloadTelegramFile("photo-file-id");
+
+        Update update = createPhotoUpdate(123L, 100L, null, "photo-file-id");
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        assertNull(msg.getMetadata().get("modelTier"));
     }
 
     // ===== Event publishing =====
@@ -286,6 +358,12 @@ class TelegramAdapterHandleMessageTest {
 
     // ===== Helpers =====
 
+    private Message captureInboundMessage() {
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageHandler).accept(captor.capture());
+        return captor.getValue();
+    }
+
     private Update createTextUpdate(long userId, long chatId, String text) {
         User user = createUser(userId);
         org.telegram.telegrambots.meta.api.objects.message.Message telegramMsg = mock(
@@ -302,6 +380,57 @@ class TelegramAdapterHandleMessageTest {
         when(update.hasCallbackQuery()).thenReturn(false);
         when(update.getMessage()).thenReturn(telegramMsg);
 
+        return update;
+    }
+
+    private Update createPhotoUpdate(long userId, long chatId, String caption, String fileId) {
+        User user = createUser(userId);
+        PhotoSize photo = mock(PhotoSize.class);
+        when(photo.getFileId()).thenReturn(fileId);
+
+        org.telegram.telegrambots.meta.api.objects.message.Message telegramMsg = mock(
+                org.telegram.telegrambots.meta.api.objects.message.Message.class);
+        when(telegramMsg.getChatId()).thenReturn(chatId);
+        when(telegramMsg.getFrom()).thenReturn(user);
+        when(telegramMsg.getMessageId()).thenReturn(1);
+        when(telegramMsg.hasText()).thenReturn(false);
+        when(telegramMsg.getCaption()).thenReturn(caption);
+        when(telegramMsg.hasVoice()).thenReturn(false);
+        when(telegramMsg.hasPhoto()).thenReturn(true);
+        when(telegramMsg.getPhoto()).thenReturn(List.of(photo));
+        when(telegramMsg.hasDocument()).thenReturn(false);
+
+        Update update = mock(Update.class);
+        when(update.hasMessage()).thenReturn(true);
+        when(update.hasCallbackQuery()).thenReturn(false);
+        when(update.getMessage()).thenReturn(telegramMsg);
+        return update;
+    }
+
+    private Update createImageDocumentUpdate(long userId, long chatId, String fileName, String mimeType,
+            String fileId) {
+        User user = createUser(userId);
+        Document document = mock(Document.class);
+        when(document.getFileId()).thenReturn(fileId);
+        when(document.getMimeType()).thenReturn(mimeType);
+        when(document.getFileName()).thenReturn(fileName);
+
+        org.telegram.telegrambots.meta.api.objects.message.Message telegramMsg = mock(
+                org.telegram.telegrambots.meta.api.objects.message.Message.class);
+        when(telegramMsg.getChatId()).thenReturn(chatId);
+        when(telegramMsg.getFrom()).thenReturn(user);
+        when(telegramMsg.getMessageId()).thenReturn(1);
+        when(telegramMsg.hasText()).thenReturn(false);
+        when(telegramMsg.getCaption()).thenReturn(null);
+        when(telegramMsg.hasVoice()).thenReturn(false);
+        when(telegramMsg.hasPhoto()).thenReturn(false);
+        when(telegramMsg.hasDocument()).thenReturn(true);
+        when(telegramMsg.getDocument()).thenReturn(document);
+
+        Update update = mock(Update.class);
+        when(update.hasMessage()).thenReturn(true);
+        when(update.hasCallbackQuery()).thenReturn(false);
+        when(update.getMessage()).thenReturn(telegramMsg);
         return update;
     }
 
