@@ -1,0 +1,12 @@
+id: golemcore/firecrawl
+provider: golemcore
+name: firecrawl
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.firecrawl.FirecrawlPluginBootstrap
+description: Firecrawl-backed page scraping plugin for markdown, summary, HTML, and link extraction.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/firecrawl
+license: Apache-2.0
+maintainers:
+  - alexk-dev
