@@ -466,15 +466,15 @@ public class PerplexityAskToolProvider implements ToolProvider {
 
         private static final long serialVersionUID = 1L;
 
-        private final int statusCode;
+        private final int httpStatusCode;
 
         private PerplexityRequestException(int statusCode, String message) {
             super(message);
-            this.statusCode = statusCode;
+            this.httpStatusCode = statusCode;
         }
 
         private int statusCode() {
-            return statusCode;
+            return httpStatusCode;
         }
     }
 

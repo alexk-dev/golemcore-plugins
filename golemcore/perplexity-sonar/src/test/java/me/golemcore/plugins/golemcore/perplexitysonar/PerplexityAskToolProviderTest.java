@@ -31,7 +31,7 @@ class PerplexityAskToolProviderTest {
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
 
     private PerplexitySonarPluginConfigService configService;
-    private TestablePerplexityAskToolProvider provider;
+    private MockPerplexityAskToolProvider provider;
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -47,7 +47,7 @@ class PerplexityAskToolProviderTest {
                 .returnImages(false)
                 .build();
         when(configService.getConfig()).thenReturn(config);
-        provider = new TestablePerplexityAskToolProvider(configService);
+        provider = new MockPerplexityAskToolProvider(configService);
     }
 
     @Test
@@ -176,12 +176,12 @@ class PerplexityAskToolProviderTest {
         }
     }
 
-    private static final class TestablePerplexityAskToolProvider extends PerplexityAskToolProvider {
+    private static final class MockPerplexityAskToolProvider extends PerplexityAskToolProvider {
 
         private final Queue<PlannedResponse> plannedResponses = new ArrayDeque<>();
         private final List<Request> capturedRequests = new ArrayList<>();
 
-        private TestablePerplexityAskToolProvider(PerplexitySonarPluginConfigService configService) {
+        private MockPerplexityAskToolProvider(PerplexitySonarPluginConfigService configService) {
             super(configService);
         }
 

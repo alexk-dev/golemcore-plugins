@@ -32,7 +32,7 @@ class BrowserlessSmartScrapeToolProviderTest {
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
 
     private BrowserlessPluginConfigService configService;
-    private TestableBrowserlessSmartScrapeToolProvider provider;
+    private MockBrowserlessSmartScrapeToolProvider provider;
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -50,7 +50,7 @@ class BrowserlessSmartScrapeToolProviderTest {
                 .gotoTimeoutMs(30000)
                 .build();
         when(configService.getConfig()).thenReturn(config);
-        provider = new TestableBrowserlessSmartScrapeToolProvider(configService);
+        provider = new MockBrowserlessSmartScrapeToolProvider(configService);
     }
 
     @Test
@@ -225,12 +225,12 @@ class BrowserlessSmartScrapeToolProviderTest {
         }
     }
 
-    private static final class TestableBrowserlessSmartScrapeToolProvider extends BrowserlessSmartScrapeToolProvider {
+    private static final class MockBrowserlessSmartScrapeToolProvider extends BrowserlessSmartScrapeToolProvider {
 
         private final Queue<PlannedResponse> plannedResponses = new ArrayDeque<>();
         private final List<Request> capturedRequests = new ArrayList<>();
 
-        private TestableBrowserlessSmartScrapeToolProvider(BrowserlessPluginConfigService configService) {
+        private MockBrowserlessSmartScrapeToolProvider(BrowserlessPluginConfigService configService) {
             super(configService);
         }
 

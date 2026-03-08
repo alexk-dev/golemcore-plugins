@@ -253,7 +253,7 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
     private BrowserlessScrapeResult parseScrapeResult(JsonNode root, String format, String fallbackUrl) {
         JsonNode contentNode = root.path("content");
         Object content = contentNode.isMissingNode() || contentNode.isNull()
-                ? (format.equals("links") ? List.of() : "")
+                ? ("links".equals(format) ? List.of() : "")
                 : objectMapper.convertValue(contentNode, Object.class);
         String renderedContent = renderContent(contentNode);
         return new BrowserlessScrapeResult(
@@ -542,15 +542,17 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
 
     private static final class BrowserlessRequestException extends RuntimeException {
 
-        private final int statusCode;
+        private static final long serialVersionUID = 1L;
+
+        private final int httpStatusCode;
 
         private BrowserlessRequestException(int statusCode, String message) {
             super(message);
-            this.statusCode = statusCode;
+            this.httpStatusCode = statusCode;
         }
 
         private int statusCode() {
-            return statusCode;
+            return httpStatusCode;
         }
     }
 }

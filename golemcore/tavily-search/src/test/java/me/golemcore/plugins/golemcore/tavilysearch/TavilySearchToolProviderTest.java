@@ -30,7 +30,7 @@ class TavilySearchToolProviderTest {
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
 
     private TavilySearchPluginConfigService configService;
-    private TestableTavilySearchToolProvider provider;
+    private MockTavilySearchToolProvider provider;
     private ObjectMapper objectMapper;
     private TavilySearchPluginConfig config;
 
@@ -48,7 +48,7 @@ class TavilySearchToolProviderTest {
                 .includeRawContent(false)
                 .build();
         when(configService.getConfig()).thenReturn(config);
-        provider = new TestableTavilySearchToolProvider(configService);
+        provider = new MockTavilySearchToolProvider(configService);
     }
 
     @Test
@@ -163,12 +163,12 @@ class TavilySearchToolProviderTest {
         }
     }
 
-    private static final class TestableTavilySearchToolProvider extends TavilySearchToolProvider {
+    private static final class MockTavilySearchToolProvider extends TavilySearchToolProvider {
 
         private final Queue<PlannedResponse> plannedResponses = new ArrayDeque<>();
         private final List<Request> capturedRequests = new ArrayList<>();
 
-        private TestableTavilySearchToolProvider(TavilySearchPluginConfigService configService) {
+        private MockTavilySearchToolProvider(TavilySearchPluginConfigService configService) {
             super(configService);
         }
 

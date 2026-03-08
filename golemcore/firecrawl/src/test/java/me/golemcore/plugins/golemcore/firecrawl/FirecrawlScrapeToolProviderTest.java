@@ -30,7 +30,7 @@ class FirecrawlScrapeToolProviderTest {
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
 
     private FirecrawlPluginConfigService configService;
-    private TestableFirecrawlScrapeToolProvider provider;
+    private MockFirecrawlScrapeToolProvider provider;
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -46,7 +46,7 @@ class FirecrawlScrapeToolProviderTest {
                 .timeoutMs(30000)
                 .build();
         when(configService.getConfig()).thenReturn(config);
-        provider = new TestableFirecrawlScrapeToolProvider(configService);
+        provider = new MockFirecrawlScrapeToolProvider(configService);
     }
 
     @Test
@@ -152,12 +152,12 @@ class FirecrawlScrapeToolProviderTest {
         }
     }
 
-    private static final class TestableFirecrawlScrapeToolProvider extends FirecrawlScrapeToolProvider {
+    private static final class MockFirecrawlScrapeToolProvider extends FirecrawlScrapeToolProvider {
 
         private final Queue<PlannedResponse> plannedResponses = new ArrayDeque<>();
         private final List<Request> capturedRequests = new ArrayList<>();
 
-        private TestableFirecrawlScrapeToolProvider(FirecrawlPluginConfigService configService) {
+        private MockFirecrawlScrapeToolProvider(FirecrawlPluginConfigService configService) {
             super(configService);
         }
 
