@@ -3,7 +3,7 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/firecrawl/1.0.0/golemcore-firecrawl-plugin-1.0.0.jar"
-checksumSha256: "67bcf8bca4a00336c06d09c41b1744f082ed303f0eeb4a9e1dd14d532e211bd9"
+checksumSha256: "6985f1e215b5308434072c5f3eacda08d77b6f0d620c2844b7cacf12bc0d9036"
 publishedAt: "2026-03-08T00:13:06Z"
 sourceCommit: "5901f7b3926cdc6970b86d2f42241ed2ad82340c"
 entrypoint: me.golemcore.plugins.golemcore.firecrawl.FirecrawlPluginBootstrap
