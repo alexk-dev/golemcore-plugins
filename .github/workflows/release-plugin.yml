@@ -33,6 +33,9 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Ensure workflow runs on default branch
         if: github.ref_name != github.event.repository.default_branch
