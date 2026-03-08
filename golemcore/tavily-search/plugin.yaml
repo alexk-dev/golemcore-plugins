@@ -1,0 +1,12 @@
+id: golemcore/tavily-search
+provider: golemcore
+name: tavily-search
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.tavilysearch.TavilySearchPluginBootstrap
+description: Tavily-backed web search tool plugin with configurable search depth and answer generation.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/tavily-search
+license: Apache-2.0
+maintainers:
+  - alexk-dev

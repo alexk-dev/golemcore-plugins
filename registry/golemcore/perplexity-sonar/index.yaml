@@ -1,0 +1,7 @@
+id: golemcore/perplexity-sonar
+owner: golemcore
+name: perplexity-sonar
+latest: 1.0.0
+versions:
+  - 1.0.0
+source: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/perplexity-sonar
