@@ -15,6 +15,7 @@
         <java.version>25</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.outputTimestamp>2026-03-07T00:00:00Z</project.build.outputTimestamp>
+        <plugin.api.version>1.0.0</plugin.api.version>
         <spring.boot.version>4.0.3</spring.boot.version>
         <okhttp.version>5.3.2</okhttp.version>
         <playwright.version>1.49.0</playwright.version>
@@ -60,12 +61,12 @@
             <dependency>
                 <groupId>me.golemcore.plugins</groupId>
                 <artifactId>golemcore-plugin-extension-api</artifactId>
-                <version>${project.version}</version>
+                <version>${plugin.api.version}</version>
             </dependency>
             <dependency>
                 <groupId>me.golemcore.plugins</groupId>
                 <artifactId>golemcore-plugin-runtime-api</artifactId>
-                <version>${project.version}</version>
+                <version>${plugin.api.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

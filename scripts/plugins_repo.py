@@ -216,6 +216,34 @@ def read_dependencies(path: Path) -> list[tuple[str, str, str | None]]:
     return dependencies
 
 
+def read_dependency_management_versions(path: Path) -> dict[tuple[str, str], str]:
+    root = et.parse(path).getroot()
+    versions: dict[tuple[str, str], str] = {}
+    for dependency in root.findall("m:dependencyManagement/m:dependencies/m:dependency", POM):
+        group_id = read_required_text(dependency, "m:groupId", path)
+        artifact_id = read_required_text(dependency, "m:artifactId", path)
+        version = read_required_text(dependency, "m:version", path)
+        versions[(group_id, artifact_id)] = version
+    return versions
+
+
+def read_pom_version(path: Path) -> str:
+    root = et.parse(path).getroot()
+    version = root.find("m:version", POM)
+    if version is None or version.text is None or not version.text.strip():
+        raise ValueError(f"Missing version in {path}")
+    return version.text.strip()
+
+
+def read_pom_property(properties: et.Element | None, name: str, source: Path) -> str:
+    if properties is None:
+        raise ValueError(f"{source}: missing properties section")
+    element = properties.find(f"{{{POM_NS}}}{name}")
+    if element is None or element.text is None or not element.text.strip():
+        raise ValueError(f"{source}: {name} must be defined")
+    return element.text.strip()
+
+
 def read_build_plugin_artifact_ids(path: Path) -> set[str]:
     root = et.parse(path).getroot()
     plugins = root.findall("m:build/m:plugins/m:plugin", POM)
@@ -551,7 +579,8 @@ def validate_repo(check_local_artifacts: bool = False) -> None:
     if not plugins:
         raise SystemExit("No plugins discovered")
 
-    root_pom = et.parse(ROOT / "pom.xml").getroot()
+    root_pom_path = ROOT / "pom.xml"
+    root_pom = et.parse(root_pom_path).getroot()
     root_modules = [module.text.strip() for module in root_pom.findall("m:modules/m:module", POM) if module.text]
     errors: list[str] = []
     try:
@@ -565,6 +594,38 @@ def validate_repo(check_local_artifacts: bool = False) -> None:
             errors.append(f"{ROOT / 'pom.xml'}: missing module extension-api")
         if "runtime-api" not in root_modules:
             errors.append(f"{ROOT / 'pom.xml'}: missing module runtime-api")
+
+    root_properties = root_pom.find("m:properties", POM)
+    try:
+        plugin_api_version = read_pom_property(root_properties, "plugin.api.version", root_pom_path)
+    except ValueError as error:
+        errors.append(str(error))
+    else:
+        if not SEMVER_RE.fullmatch(plugin_api_version):
+            errors.append(f"{root_pom_path}: plugin.api.version must be a valid SemVer, got {plugin_api_version}")
+
+    dependency_management_versions = read_dependency_management_versions(root_pom_path)
+    expected_api_version_ref = "${plugin.api.version}"
+    for artifact_id in ("golemcore-plugin-extension-api", "golemcore-plugin-runtime-api"):
+        coordinate = ("me.golemcore.plugins", artifact_id)
+        actual_version = dependency_management_versions.get(coordinate)
+        if actual_version != expected_api_version_ref:
+            errors.append(
+                f"{root_pom_path}: dependencyManagement for {coordinate[0]}:{artifact_id} must use "
+                f"{expected_api_version_ref}, got {actual_version or '<missing>'}"
+            )
+
+    for module_path in ("extension-api", "runtime-api"):
+        module_pom = ROOT / module_path / "pom.xml"
+        if not module_pom.exists():
+            continue
+        try:
+            module_version = read_pom_version(module_pom)
+        except ValueError as error:
+            errors.append(str(error))
+            continue
+        if plugin_api_version is not None and module_version != plugin_api_version:
+            errors.append(f"{module_pom}: version must match plugin.api.version {plugin_api_version}, got {module_version}")
 
     formatter_required_modules = {"extension-api", "runtime-api"}
     formatter_plugin_artifact = "formatter-maven-plugin"
