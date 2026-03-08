@@ -10,6 +10,7 @@ Follow them for `extension-api/`, `runtime-api/`, and `golemcore/*` modules unle
 - Each plugin is versioned independently with SemVer.
 - The source of truth for the current plugin version is the child module `pom.xml`.
 - `plugin.yaml` and `registry/` metadata must match the module version.
+- Shared repository APIs use the repository-level `plugin.api.version`. They do not automatically follow individual plugin release bumps.
 - Released plugin versions are immutable. Never replace the jar, checksum, or metadata of an already released `registry/<owner>/<plugin>/versions/<released>.yaml`.
 - Code changes to a released plugin must ship as a new SemVer version. Do not rewrite the checksum of an existing released version in a PR.
 - The checksum recorded in `registry/<owner>/<plugin>/versions/<new-version>.yaml` is derived from the artifact built by the release workflow from the repository state on the default branch.
