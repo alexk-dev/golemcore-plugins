@@ -51,9 +51,11 @@ import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVoice;
+import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.io.ByteArrayInputStream;
@@ -62,8 +64,10 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,6 +108,14 @@ import java.util.regex.Pattern;
 public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpdateConsumer {
 
     private static final String CHANNEL_TYPE = "telegram";
+    private static final String METADATA_ATTACHMENTS = "attachments";
+    private static final String ATTACHMENT_TYPE = "type";
+    private static final String ATTACHMENT_MIME_TYPE = "mimeType";
+    private static final String ATTACHMENT_DATA_BASE64 = "dataBase64";
+    private static final String ATTACHMENT_NAME = "name";
+    private static final String IMAGE_ATTACHMENT_TYPE = "image";
+    private static final String DEFAULT_PHOTO_FILE_NAME = "telegram-photo.jpg";
+    private static final String DEFAULT_PHOTO_MIME_TYPE = "image/jpeg";
     private static final String SETTINGS_COMMAND = "settings";
     private static final int CALLBACK_DATA_PARTS_COUNT = 3;
     private static final int TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
@@ -379,9 +391,11 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
         metadata.put(ContextAttributes.CONVERSATION_KEY, activeConversationKey);
         messageBuilder.metadata(metadata);
 
+        String inboundText = extractInboundText(telegramMessage);
+
         // Handle text messages
-        if (telegramMessage.hasText()) {
-            String text = telegramMessage.getText();
+        if (telegramMessage.hasText() && inboundText != null) {
+            String text = inboundText;
 
             // Handle commands
             if (text.startsWith("/")) {
@@ -429,8 +443,10 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
                     return;
                 }
             }
+        }
 
-            messageBuilder.content(text);
+        if (inboundText != null && !inboundText.isBlank()) {
+            messageBuilder.content(inboundText);
         }
 
         // Handle voice messages
@@ -441,6 +457,8 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
                 messageBuilder.content("[Voice message]");
             }
         }
+
+        attachImageInputs(telegramMessage, metadata);
 
         Message message = messageBuilder.build();
 
@@ -492,6 +510,121 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
         private Instant cooldownUntil;
     }
 
+    private String extractInboundText(org.telegram.telegrambots.meta.api.objects.message.Message telegramMessage) {
+        if (telegramMessage.hasText()) {
+            return telegramMessage.getText();
+        }
+
+        String caption = telegramMessage.getCaption();
+        return caption != null && !caption.isBlank() ? caption : null;
+    }
+
+    private void attachImageInputs(
+            org.telegram.telegrambots.meta.api.objects.message.Message telegramMessage,
+            Map<String, Object> metadata) {
+        List<Map<String, Object>> attachments = new ArrayList<>();
+
+        if (telegramMessage.hasPhoto() && telegramMessage.getPhoto() != null && !telegramMessage.getPhoto().isEmpty()) {
+            appendPhotoAttachment(telegramMessage.getPhoto(), attachments);
+        }
+
+        if (telegramMessage.hasDocument() && telegramMessage.getDocument() != null) {
+            appendImageDocumentAttachment(telegramMessage.getDocument(), attachments);
+        }
+
+        if (!attachments.isEmpty()) {
+            metadata.put(METADATA_ATTACHMENTS, attachments);
+        }
+    }
+
+    private void appendPhotoAttachment(List<PhotoSize> photos, List<Map<String, Object>> attachments) {
+        PhotoSize photo = photos.get(photos.size() - 1);
+        if (photo == null || photo.getFileId() == null || photo.getFileId().isBlank()) {
+            log.warn("Telegram photo update is missing file id, skipping image attachment");
+            return;
+        }
+
+        try {
+            byte[] imageBytes = downloadTelegramFile(photo.getFileId());
+            attachments.add(buildImageAttachment(DEFAULT_PHOTO_MIME_TYPE, imageBytes, DEFAULT_PHOTO_FILE_NAME));
+        } catch (Exception e) {
+            log.warn("Failed to download Telegram photo attachment", e);
+        }
+    }
+
+    private void appendImageDocumentAttachment(Document document, List<Map<String, Object>> attachments) {
+        String mimeType = resolveImageDocumentMimeType(document);
+        if (mimeType == null) {
+            return;
+        }
+
+        String fileId = document.getFileId();
+        if (fileId == null || fileId.isBlank()) {
+            log.warn("Telegram image document update is missing file id, skipping image attachment");
+            return;
+        }
+
+        try {
+            byte[] imageBytes = downloadTelegramFile(fileId);
+            attachments.add(buildImageAttachment(mimeType, imageBytes, resolveDocumentFileName(document, mimeType)));
+        } catch (Exception e) {
+            log.warn("Failed to download Telegram image document attachment", e);
+        }
+    }
+
+    private String resolveImageDocumentMimeType(Document document) {
+        String mimeType = document.getMimeType();
+        if (mimeType != null && mimeType.startsWith("image/")) {
+            return mimeType;
+        }
+
+        String fileName = document.getFileName();
+        if (fileName == null || fileName.isBlank()) {
+            return null;
+        }
+
+        String normalized = fileName.toLowerCase(Locale.ROOT);
+        if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (normalized.endsWith(".png")) {
+            return "image/png";
+        }
+        if (normalized.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (normalized.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (normalized.endsWith(".bmp")) {
+            return "image/bmp";
+        }
+        return null;
+    }
+
+    private String resolveDocumentFileName(Document document, String mimeType) {
+        String fileName = document.getFileName();
+        if (fileName != null && !fileName.isBlank()) {
+            return fileName;
+        }
+
+        return switch (mimeType) {
+        case "image/png" -> "telegram-image.png";
+        case "image/webp" -> "telegram-image.webp";
+        case "image/gif" -> "telegram-image.gif";
+        case "image/bmp" -> "telegram-image.bmp";
+        default -> DEFAULT_PHOTO_FILE_NAME;
+        };
+    }
+
+    private Map<String, Object> buildImageAttachment(String mimeType, byte[] imageBytes, String fileName) {
+        return Map.of(
+                ATTACHMENT_TYPE, IMAGE_ATTACHMENT_TYPE,
+                ATTACHMENT_MIME_TYPE, mimeType,
+                ATTACHMENT_DATA_BASE64, Base64.getEncoder().encodeToString(imageBytes),
+                ATTACHMENT_NAME, fileName);
+    }
+
     private void processVoiceMessage(
             org.telegram.telegrambots.meta.api.objects.message.Message telegramMessage,
             Message.MessageBuilder messageBuilder) {
@@ -525,6 +658,10 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
     }
 
     private byte[] downloadVoice(String fileId) throws TelegramApiException, java.io.IOException {
+        return downloadTelegramFile(fileId);
+    }
+
+    byte[] downloadTelegramFile(String fileId) throws TelegramApiException, java.io.IOException {
         GetFile getFile = new GetFile(fileId);
         org.telegram.telegrambots.meta.api.objects.File file = executeWithRetry(() -> telegramClient.execute(getFile));
 

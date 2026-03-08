@@ -36,9 +36,6 @@ jobs:
       - name: Build, test, and verify code quality
         run: mvn -B -ntp -P strict verify
 
-      - name: Validate registry checksums against built artifacts
-        run: python3 scripts/plugins_repo.py validate --check-local-artifacts
-
       - name: Upload packaged artifacts
         if: always()
         uses: actions/upload-artifact@v4

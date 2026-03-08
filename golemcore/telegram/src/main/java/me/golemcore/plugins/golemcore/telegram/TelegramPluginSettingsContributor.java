@@ -145,7 +145,9 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
                         .build());
     }
 
-    private Map<String, Object> buildValues(RuntimeConfig.TelegramConfig telegram, RuntimeConfig.VoiceConfig voice) {
+    private Map<String, Object> buildValues(
+            RuntimeConfig.TelegramConfig telegram,
+            RuntimeConfig.VoiceConfig voice) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("enabled", Boolean.TRUE.equals(telegram.getEnabled()));
         values.put("token", "");
