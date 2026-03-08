@@ -1,11 +1,12 @@
 id: golemcore/telegram
-provider: golemcore
-name: telegram
 version: 1.1.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/telegram/1.1.0/golemcore-telegram-plugin-1.1.0.jar"
+checksumSha256: "6ad7d32bc79ea875c2dc1974638b9f5cbdd0c2547a50642ae1e3d07923be94d5"
+publishedAt: "2026-03-08T23:06:42Z"
+sourceCommit: "7cc1b15f8a58424a9c7aa410ecd3cd22c8d436d0"
 entrypoint: me.golemcore.plugins.golemcore.telegram.TelegramPluginBootstrap
-description: "Telegram channel, invite onboarding, confirmations, and plan approval integration."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/telegram"
 license: "Apache-2.0"
 maintainers:
