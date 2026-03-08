@@ -88,7 +88,12 @@ public class BrowserlessPluginSettingsContributor implements PluginSettingsContr
                                 .options(List.of(
                                         PluginSettingsFieldOption.builder().value("markdown").label("Markdown").build(),
                                         PluginSettingsFieldOption.builder().value("html").label("HTML").build(),
-                                        PluginSettingsFieldOption.builder().value("links").label("Links").build()))
+                                        PluginSettingsFieldOption.builder().value("links").label("Links").build(),
+                                        PluginSettingsFieldOption.builder().value("pdf").label("PDF").build(),
+                                        PluginSettingsFieldOption.builder()
+                                                .value("screenshot")
+                                                .label("Screenshot")
+                                                .build()))
                                 .build(),
                         PluginSettingsField.builder()
                                 .key("bestAttempt")

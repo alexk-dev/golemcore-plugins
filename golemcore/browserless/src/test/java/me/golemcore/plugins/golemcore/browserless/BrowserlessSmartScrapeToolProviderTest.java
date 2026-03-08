@@ -2,6 +2,7 @@ package me.golemcore.plugins.golemcore.browserless;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import me.golemcore.plugin.api.extension.model.Attachment;
 import okhttp3.MediaType;
 import okhttp3.Protocol;
 import okhttp3.Request;
@@ -20,6 +21,7 @@ import java.util.Queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -147,6 +149,61 @@ class BrowserlessSmartScrapeToolProviderTest {
 
         assertTrue(result.isSuccess());
         assertEquals(2, provider.getCapturedRequests().size());
+    }
+
+    @Test
+    void shouldReturnAttachmentForPdfFormat() {
+        provider.enqueueResponse(200, """
+                {
+                  "ok": true,
+                  "statusCode": 200,
+                  "contentType": "application/pdf",
+                  "strategy": "content",
+                  "attempted": [
+                    "/pdf?timeout=30000"
+                  ],
+                  "content": "JVBERi0xLjQ="
+                }
+                """);
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider
+                .execute(Map.of("url", "https://example.com/report", "format", "pdf")).join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("browserless-capture.pdf"));
+        Map<?, ?> data = (Map<?, ?>) result.getData();
+        assertEquals("browserless-capture.pdf", data.get("filename"));
+        Object attachmentObj = data.get("attachment");
+        assertInstanceOf(Attachment.class, attachmentObj);
+        Attachment attachment = (Attachment) attachmentObj;
+        assertEquals(Attachment.Type.DOCUMENT, attachment.getType());
+        assertEquals("application/pdf", attachment.getMimeType());
+    }
+
+    @Test
+    void shouldReturnAttachmentForScreenshotFormat() {
+        provider.enqueueResponse(200, """
+                {
+                  "ok": true,
+                  "statusCode": 200,
+                  "contentType": "image/png",
+                  "strategy": "content",
+                  "attempted": [
+                    "/screenshot?timeout=30000"
+                  ],
+                  "content": "iVBORw0KGgo="
+                }
+                """);
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider
+                .execute(Map.of("url", "https://example.com/shot", "format", "screenshot")).join();
+
+        assertTrue(result.isSuccess());
+        Map<?, ?> data = (Map<?, ?>) result.getData();
+        assertEquals("browserless-screenshot.png", data.get("filename"));
+        Attachment attachment = (Attachment) data.get("attachment");
+        assertEquals(Attachment.Type.IMAGE, attachment.getType());
+        assertEquals("image/png", attachment.getMimeType());
     }
 
     @Test

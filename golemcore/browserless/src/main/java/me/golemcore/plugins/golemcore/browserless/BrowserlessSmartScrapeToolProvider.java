@@ -3,6 +3,7 @@ package me.golemcore.plugins.golemcore.browserless;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import me.golemcore.plugin.api.extension.model.Attachment;
 import me.golemcore.plugin.api.extension.model.ToolDefinition;
 import me.golemcore.plugin.api.extension.model.ToolFailureKind;
 import me.golemcore.plugin.api.extension.model.ToolResult;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +52,8 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
     private static final long INITIAL_BACKOFF_MS = 2_000;
     private static final int MAX_OUTPUT_CHARS = 12_000;
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
-    private static final Set<String> SUPPORTED_FORMATS = Set.of("markdown", "html", "links");
+    private static final Set<String> SUPPORTED_FORMATS = Set.of("markdown", "html", "links", "pdf", "screenshot");
+    private static final Set<String> BINARY_FORMATS = Set.of("pdf", "screenshot");
     private static final Set<String> SUPPORTED_WAIT_UNTIL = Set.of(
             "load",
             "domcontentloaded",
@@ -80,7 +83,8 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
                                         "description", "Absolute HTTP(S) URL to scrape."),
                                 PARAM_FORMAT, Map.of(
                                         TYPE, TYPE_STRING,
-                                        "description", "Desired output format: markdown, html, or links."),
+                                        "description",
+                                        "Desired output format: markdown, html, links, pdf, or screenshot."),
                                 PARAM_TIMEOUT_MS, Map.of(
                                         TYPE, TYPE_INTEGER,
                                         "description", "Global Browserless request timeout in milliseconds."),
@@ -265,6 +269,10 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
     }
 
     private ToolResult buildSuccessResult(String url, String format, BrowserlessScrapeResult result) {
+        if (BINARY_FORMATS.contains(format)) {
+            return buildBinarySuccessResult(url, format, result);
+        }
+
         StringBuilder output = new StringBuilder();
         output.append("Browserless smart scrape for ")
                 .append(result.url() != null ? result.url() : url)
@@ -302,6 +310,60 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
         return ToolResult.success(output.toString(), data);
     }
 
+    private ToolResult buildBinarySuccessResult(String url, String format, BrowserlessScrapeResult result) {
+        String base64Payload = result.renderedContent();
+        if (!hasText(base64Payload)) {
+            return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
+                    "Browserless did not return a binary payload for format: " + format);
+        }
+
+        byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(base64Payload);
+        } catch (IllegalArgumentException ex) {
+            return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
+                    "Browserless returned invalid base64 payload for format: " + format);
+        }
+
+        String mimeType = resolveBinaryMimeType(format, result.contentType());
+        String filename = resolveBinaryFilename(format, mimeType);
+        Attachment.Type attachmentType = mimeType.startsWith("image/")
+                ? Attachment.Type.IMAGE
+                : Attachment.Type.DOCUMENT;
+        Attachment attachment = Attachment.builder()
+                .type(attachmentType)
+                .data(bytes)
+                .filename(filename)
+                .mimeType(mimeType)
+                .caption("Browserless " + format + " capture for " + (result.url() != null ? result.url() : url))
+                .build();
+
+        StringBuilder output = new StringBuilder();
+        output.append("Browserless ").append(format).append(" capture for ")
+                .append(result.url() != null ? result.url() : url)
+                .append('\n');
+        if (result.statusCode() != null) {
+            output.append("HTTP Status: ").append(result.statusCode()).append('\n');
+        }
+        if (hasText(result.strategy())) {
+            output.append("Strategy: ").append(result.strategy()).append('\n');
+        }
+        output.append("File: ").append(filename).append('\n');
+        output.append("Size: ").append(bytes.length).append(" bytes");
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("url", result.url() != null ? result.url() : url);
+        data.put("format", format);
+        data.put("statusCode", result.statusCode());
+        data.put("contentType", mimeType);
+        data.put("strategy", firstText(result.strategy(), ""));
+        data.put("attempted", result.attempted());
+        data.put("message", firstText(result.message(), ""));
+        data.put("filename", filename);
+        data.put("attachment", attachment);
+        return ToolResult.success(output.toString(), data);
+    }
+
     private String renderContent(JsonNode contentNode) {
         if (contentNode == null || contentNode.isMissingNode() || contentNode.isNull()) {
             return "";
@@ -329,6 +391,29 @@ public class BrowserlessSmartScrapeToolProvider implements ToolProvider {
             }
         }
         return "HTTP " + statusCode;
+    }
+
+    private String resolveBinaryMimeType(String format, String responseContentType) {
+        if (hasText(responseContentType)) {
+            return responseContentType;
+        }
+        return switch (format) {
+        case "pdf" -> "application/pdf";
+        case "screenshot" -> "image/png";
+        default -> "application/octet-stream";
+        };
+    }
+
+    private String resolveBinaryFilename(String format, String mimeType) {
+        return switch (format) {
+        case "pdf" -> "browserless-capture.pdf";
+        case "screenshot" -> mimeType.endsWith("jpeg")
+                ? "browserless-screenshot.jpg"
+                : mimeType.endsWith("webp")
+                        ? "browserless-screenshot.webp"
+                        : "browserless-screenshot.png";
+        default -> "browserless-download.bin";
+        };
     }
 
     private boolean shouldRetry(int statusCode) {

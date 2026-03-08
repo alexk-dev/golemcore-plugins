@@ -53,7 +53,7 @@ class BrowserlessPluginSettingsContributorTest {
                 "enabled", false,
                 "apiKey", "",
                 "baseUrl", "https://custom.browserless.example",
-                "defaultFormat", "html",
+                "defaultFormat", "pdf",
                 "bestAttempt", true,
                 "gotoWaitUntil", "load",
                 "gotoTimeoutMs", "45000",
@@ -65,7 +65,7 @@ class BrowserlessPluginSettingsContributorTest {
         assertEquals("bl_existing", saved.getApiKey());
         assertFalse(saved.getEnabled());
         assertEquals("https://custom.browserless.example", saved.getBaseUrl());
-        assertEquals("html", saved.getDefaultFormat());
+        assertEquals("pdf", saved.getDefaultFormat());
         assertTrue(saved.getBestAttempt());
         assertEquals("load", saved.getGotoWaitUntil());
         assertEquals(45000, saved.getGotoTimeoutMs());

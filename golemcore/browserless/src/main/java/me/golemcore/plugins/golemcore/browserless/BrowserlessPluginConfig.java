@@ -13,7 +13,7 @@ import java.util.Set;
 @Builder
 public class BrowserlessPluginConfig {
 
-    private static final Set<String> SUPPORTED_FORMATS = Set.of("markdown", "html", "links");
+    private static final Set<String> SUPPORTED_FORMATS = Set.of("markdown", "html", "links", "pdf", "screenshot");
     private static final Set<String> SUPPORTED_WAIT_UNTIL = Set.of(
             "load",
             "domcontentloaded",
