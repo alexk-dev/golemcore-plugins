@@ -1,0 +1,13 @@
+id: golemcore/browserless
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/browserless/1.0.0/golemcore-browserless-plugin-1.0.0.jar"
+checksumSha256: "d83cf08b9f3ef68b20de710cbd4c8e0e04ee24b121314ccfed47f0047fff6fb8"
+publishedAt: "TBD"
+sourceCommit: "TBD"
+entrypoint: me.golemcore.plugins.golemcore.browserless.BrowserlessPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browserless"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

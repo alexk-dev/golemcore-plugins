@@ -39,6 +39,7 @@
         <module>golemcore/whisper</module>
         <module>golemcore/browser</module>
         <module>golemcore/brave-search</module>
+        <module>golemcore/browserless</module>
         <module>golemcore/tavily-search</module>
         <module>golemcore/firecrawl</module>
         <module>golemcore/perplexity-sonar</module>
