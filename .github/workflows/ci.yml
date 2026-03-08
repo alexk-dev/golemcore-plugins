@@ -46,3 +46,126 @@ jobs:
           name: golemcore-plugins-dist
           path: dist/**
           if-no-files-found: ignore
+
+  release_main:
+    if: >
+      github.event_name == 'push' &&
+      github.ref_name == github.event.repository.default_branch &&
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      !startsWith(github.event.head_commit.message, 'chore(release):')
+    needs: verify
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout plugins repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load repository build settings
+        id: repo
+        run: python3 scripts/plugins_repo.py repo-settings --github-output "$GITHUB_OUTPUT"
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.repo.outputs.java_version }}
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Determine release range
+        id: range
+        shell: bash
+        run: |
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+            before="$(git rev-parse "${after}^")"
+          fi
+          echo "rev_range=${before}..${after}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine release plan
+        id: plan
+        shell: bash
+        run: |
+          mapfile -t plugins < <(python3 scripts/plugins_repo.py release-plan --rev-range "${{ steps.range.outputs.rev_range }}")
+          if (( ${#plugins[@]} == 0 )); then
+            echo "No plugin releases required for ${{ steps.range.outputs.rev_range }}."
+            echo "has_releases=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          plan_path="$RUNNER_TEMP/release-plan.txt"
+          printf '%s\n' "${plugins[@]}" > "$plan_path"
+          echo "has_releases=true" >> "$GITHUB_OUTPUT"
+          echo "plan_path=$plan_path" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Git author
+        if: steps.plan.outputs.has_releases == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Release changed plugins
+        if: steps.plan.outputs.has_releases == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          while IFS= read -r plugin_id; do
+            [[ -n "$plugin_id" ]] || continue
+
+            release_output="$RUNNER_TEMP/release-output.env"
+            : > "$release_output"
+
+            python3 scripts/plugins_repo.py release \
+              --plugin "$plugin_id" \
+              --bump auto \
+              --github-output "$release_output"
+
+            while IFS='=' read -r key value; do
+              printf -v "$key" '%s' "$value"
+              export "$key"
+            done < "$release_output"
+
+            mvn -B -ntp org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
+              -DrepositoryId=github \
+              -Durl="https://maven.pkg.github.com/${GITHUB_REPOSITORY}" \
+              -Dfile="${artifact_path}" \
+              -DgroupId="me.golemcore.plugins" \
+              -DartifactId="${artifact_id}" \
+              -Dversion="${version}" \
+              -Dpackaging=jar \
+              -DgeneratePom=true \
+              -DretryFailedDeploymentCount=3
+
+            git add \
+              "${pom_path}" \
+              "${plugin_yaml_path}" \
+              "${registry_index_path}" \
+              "${registry_version_path}"
+
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(release): ${plugin_id} v${version} [skip ci]"
+              git push origin "HEAD:${GITHUB_REF_NAME}"
+            fi
+
+            git tag "${tag_name}"
+            git push origin "${tag_name}"
+
+            gh release create "${tag_name}" \
+              "${artifact_path}" \
+              "${artifact_sha256_path}" \
+              "${registry_version_path}" \
+              --title "${release_name}" \
+              --generate-notes
+          done < "${{ steps.plan.outputs.plan_path }}"

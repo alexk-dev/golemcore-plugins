@@ -6,11 +6,7 @@ on:
       plugin_id:
         description: Canonical plugin id
         required: true
-        type: choice
-        options:
-          - golemcore/telegram
-          - golemcore/elevenlabs
-          - golemcore/whisper
+        type: string
       bump:
         description: SemVer bump to apply
         required: true
@@ -28,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ inputs.plugin_id }}
@@ -58,6 +55,9 @@ jobs:
           distribution: temurin
           java-version: ${{ steps.repo.outputs.java_version }}
           cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
 
       - name: Validate plugin repository structure
         run: python3 scripts/plugins_repo.py validate
@@ -82,6 +82,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Publish GitHub Package
+        run: |
+          mvn -B -ntp org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
+            -DrepositoryId=github \
+            -Durl="https://maven.pkg.github.com/${GITHUB_REPOSITORY}" \
+            -Dfile="${{ steps.release.outputs.artifact_path }}" \
+            -DgroupId="me.golemcore.plugins" \
+            -DartifactId="${{ steps.release.outputs.artifact_id }}" \
+            -Dversion="${{ steps.release.outputs.version }}" \
+            -Dpackaging=jar \
+            -DgeneratePom=true \
+            -DretryFailedDeploymentCount=3
+
       - name: Commit release metadata
         run: |
           git add \
@@ -89,7 +102,9 @@ jobs:
             "${{ steps.release.outputs.plugin_yaml_path }}" \
             "${{ steps.release.outputs.registry_index_path }}" \
             "${{ steps.release.outputs.registry_version_path }}"
-          git commit -m "chore(release): ${{ steps.release.outputs.plugin_id }} v${{ steps.release.outputs.version }} [skip ci]"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): ${{ steps.release.outputs.plugin_id }} v${{ steps.release.outputs.version }} [skip ci]"
+          fi
 
       - name: Create Git tag
         run: git tag "${{ steps.release.outputs.tag_name }}"
