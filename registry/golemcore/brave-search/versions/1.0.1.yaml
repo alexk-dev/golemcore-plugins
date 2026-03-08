@@ -1,11 +1,12 @@
 id: golemcore/brave-search
-provider: golemcore
-name: brave-search
 version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/brave-search/1.0.1/golemcore-brave-search-plugin-1.0.1.jar"
+checksumSha256: "bae7273f3c20345579fae2022af3ef5f950963087f345f258ac950b2829182de"
+publishedAt: "2026-03-08T22:53:29Z"
+sourceCommit: "57ad876441bd2288e92c3d6e56c158995cd014bd"
 entrypoint: me.golemcore.plugins.golemcore.bravesearch.BraveSearchPluginBootstrap
-description: "Brave Search web search tool plugin with API-key backed queries."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brave-search"
 license: "Apache-2.0"
 maintainers:
