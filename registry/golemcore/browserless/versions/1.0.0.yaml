@@ -3,9 +3,9 @@ version: 1.0.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/browserless/1.0.0/golemcore-browserless-plugin-1.0.0.jar"
-checksumSha256: "d83cf08b9f3ef68b20de710cbd4c8e0e04ee24b121314ccfed47f0047fff6fb8"
-publishedAt: "2026-03-08T01:59:33Z"
-sourceCommit: "4fd1539e89aa634c5e437665d18e0e83d27b9018"
+checksumSha256: "3db0a4cf2baa86c2ca1769c3719cf7946b18d132c0b364316b46ba70e4f6e512"
+publishedAt: "2026-03-08T02:20:10Z"
+sourceCommit: "18917bc7c5dbc813e17a2e0ed1faa3fffe024a9e"
 entrypoint: me.golemcore.plugins.golemcore.browserless.BrowserlessPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browserless"
 license: "Apache-2.0"
