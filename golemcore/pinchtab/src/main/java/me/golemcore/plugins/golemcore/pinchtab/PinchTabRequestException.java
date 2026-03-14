@@ -4,6 +4,8 @@ import java.io.IOException;
 
 public class PinchTabRequestException extends IOException {
 
+    private static final long serialVersionUID = 1L;
+
     private final int statusCode;
 
     public PinchTabRequestException(int statusCode, String message) {
