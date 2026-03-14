@@ -133,6 +133,7 @@ class PerplexityAskToolProviderTest {
         assertTrue(requestJson.path("return_related_questions").asBoolean());
         assertTrue(requestJson.path("return_images").asBoolean());
         assertEquals("low", requestJson.path("reasoning_effort").asText());
+        assertTrue(result.getOutput().contains("Academic answer\n\nRelated questions:"));
     }
 
     @Test
@@ -158,6 +159,28 @@ class PerplexityAskToolProviderTest {
     }
 
     @Test
+    void shouldRetryOnIoFailureAndThenSucceed() {
+        provider.enqueueIoFailure("timeout");
+        provider.enqueueResponse(200, """
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "content": "Recovered after timeout"
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "retry io"))
+                .join();
+
+        assertTrue(result.isSuccess());
+        assertEquals(2, provider.getCapturedRequests().size());
+    }
+
+    @Test
     void shouldFailWhenAuthenticationIsRejected() {
         provider.enqueueResponse(401, "{\"error\":\"unauthorized\"}");
 
@@ -166,6 +189,142 @@ class PerplexityAskToolProviderTest {
 
         assertFalse(result.isSuccess());
         assertEquals("Perplexity authentication failed", result.getError());
+    }
+
+    @Test
+    void shouldFailWhenQuestionIsMissing() {
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "   ")).join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Question is required", result.getError());
+        assertTrue(provider.getCapturedRequests().isEmpty());
+    }
+
+    @Test
+    void shouldFailWhenPluginIsDisabled() {
+        PerplexitySonarPluginConfig disabledConfig = PerplexitySonarPluginConfig.builder()
+                .enabled(false)
+                .apiKey("pplx-test-key")
+                .defaultModel("sonar")
+                .defaultSearchMode("web")
+                .returnRelatedQuestions(false)
+                .returnImages(false)
+                .build();
+        when(configService.getConfig()).thenReturn(disabledConfig);
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "disabled"))
+                .join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Perplexity Sonar is disabled or API key is missing", result.getError());
+        assertTrue(provider.getCapturedRequests().isEmpty());
+    }
+
+    @Test
+    void shouldNormalizeInvalidParametersAndParseStringNumbers() throws Exception {
+        PerplexitySonarPluginConfig configWithCustomDefaults = PerplexitySonarPluginConfig.builder()
+                .enabled(true)
+                .apiKey("pplx-test-key")
+                .defaultModel("sonar-pro")
+                .defaultSearchMode("academic")
+                .returnRelatedQuestions(false)
+                .returnImages(false)
+                .build();
+        when(configService.getConfig()).thenReturn(configWithCustomDefaults);
+        provider.enqueueResponse(200, """
+                {
+                  "choices": [
+                    {
+                      "message": {
+                        "content": "Normalized answer"
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        Map<String, Object> requestPayload = new LinkedHashMap<>();
+        requestPayload.put("question", "Normalize this");
+        requestPayload.put("model", "not-supported");
+        requestPayload.put("search_mode", "not-supported");
+        requestPayload.put("search_domain_filter", " example.com,\nfoo.com , example.com ");
+        requestPayload.put("search_language_filter", List.of(" en ", "de", "en"));
+        requestPayload.put("search_recency_filter", "decade");
+        requestPayload.put("max_tokens", "256");
+        requestPayload.put("temperature", "0.75");
+        requestPayload.put("reasoning_effort", "extreme");
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(requestPayload).join();
+
+        assertTrue(result.isSuccess());
+        Request request = provider.getCapturedRequests().getFirst();
+        JsonNode requestJson = objectMapper.readTree(readRequestBody(request));
+        assertEquals("sonar-pro", requestJson.path("model").asText());
+        assertEquals("academic", requestJson.path("search_mode").asText());
+        assertEquals(256, requestJson.path("max_tokens").asInt());
+        assertEquals(0.75, requestJson.path("temperature").asDouble());
+        assertFalse(requestJson.has("search_recency_filter"));
+        assertFalse(requestJson.has("reasoning_effort"));
+        assertEquals(List.of("example.com", "foo.com"),
+                objectMapper.convertValue(requestJson.path("search_domain_filter"), objectMapper.getTypeFactory()
+                        .constructCollectionType(List.class, String.class)));
+        assertEquals(List.of("en", "de"),
+                objectMapper.convertValue(requestJson.path("search_language_filter"), objectMapper.getTypeFactory()
+                        .constructCollectionType(List.class, String.class)));
+    }
+
+    @Test
+    void shouldFailAfterRetryExhaustedOnRateLimit() {
+        provider.enqueueResponse(429, "{\"error\":\"rate limit\"}");
+        provider.enqueueResponse(429, "{\"error\":\"rate limit\"}");
+        provider.enqueueResponse(429, "{\"error\":\"rate limit\"}");
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "retry all"))
+                .join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Perplexity rate limit exceeded", result.getError());
+        assertEquals(3, provider.getCapturedRequests().size());
+    }
+
+    @Test
+    void shouldFailAfterRetryExhaustedOnIoFailure() {
+        provider.enqueueIoFailure("timeout");
+        provider.enqueueIoFailure("timeout");
+        provider.enqueueIoFailure("timeout");
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "retry io all"))
+                .join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Perplexity request failed: timeout", result.getError());
+        assertEquals(3, provider.getCapturedRequests().size());
+    }
+
+    @Test
+    void shouldFailWhenApiReturnsEmptyAnswer() {
+        provider.enqueueResponse(200, """
+                {
+                  "choices": []
+                }
+                """);
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "empty"))
+                .join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Perplexity returned an empty answer", result.getError());
+    }
+
+    @Test
+    void shouldFailGracefullyWhenApiReturnsMalformedJson() {
+        provider.enqueueResponse(200, "{not-json");
+
+        me.golemcore.plugin.api.extension.model.ToolResult result = provider.execute(Map.of("question", "bad json"))
+                .join();
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().startsWith("Perplexity request failed:"));
     }
 
     private String readRequestBody(Request request) throws IOException {
@@ -178,7 +337,7 @@ class PerplexityAskToolProviderTest {
 
     private static final class MockPerplexityAskToolProvider extends PerplexityAskToolProvider {
 
-        private final Queue<PlannedResponse> plannedResponses = new ArrayDeque<>();
+        private final Queue<PlannedCall> plannedResponses = new ArrayDeque<>();
         private final List<Request> capturedRequests = new ArrayList<>();
 
         private MockPerplexityAskToolProvider(PerplexitySonarPluginConfigService configService) {
@@ -186,9 +345,12 @@ class PerplexityAskToolProviderTest {
         }
 
         @Override
-        protected Response executeRequest(Request request) {
+        protected Response executeRequest(Request request) throws IOException {
             capturedRequests.add(request);
-            PlannedResponse plannedResponse = plannedResponses.remove();
+            PlannedCall plannedResponse = plannedResponses.remove();
+            if (plannedResponse.failure() != null) {
+                throw plannedResponse.failure();
+            }
             return new Response.Builder()
                     .request(request)
                     .protocol(Protocol.HTTP_1_1)
@@ -204,7 +366,11 @@ class PerplexityAskToolProviderTest {
         }
 
         private void enqueueResponse(int code, String body) {
-            plannedResponses.add(new PlannedResponse(code, body));
+            plannedResponses.add(new PlannedCall(code, body, null));
+        }
+
+        private void enqueueIoFailure(String message) {
+            plannedResponses.add(new PlannedCall(0, null, new IOException(message)));
         }
 
         private List<Request> getCapturedRequests() {
@@ -212,6 +378,6 @@ class PerplexityAskToolProviderTest {
         }
     }
 
-    private record PlannedResponse(int code, String body) {
+    private record PlannedCall(int code, String body, IOException failure) {
     }
 }

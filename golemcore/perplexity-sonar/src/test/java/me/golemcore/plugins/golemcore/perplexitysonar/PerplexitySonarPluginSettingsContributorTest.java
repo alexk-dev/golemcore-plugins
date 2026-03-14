@@ -7,8 +7,10 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -63,5 +65,45 @@ class PerplexitySonarPluginSettingsContributorTest {
         assertEquals("academic", saved.getDefaultSearchMode());
         assertTrue(saved.getReturnRelatedQuestions());
         assertTrue(saved.getReturnImages());
+    }
+
+    @Test
+    void shouldRejectUnknownSection() {
+        IllegalArgumentException getSectionError = assertThrows(IllegalArgumentException.class,
+                () -> contributor.getSection("unknown"));
+        assertEquals("Unknown Perplexity Sonar settings section: unknown", getSectionError.getMessage());
+
+        IllegalArgumentException saveSectionError = assertThrows(IllegalArgumentException.class,
+                () -> contributor.saveSection("unknown", Map.of()));
+        assertEquals("Unknown Perplexity Sonar settings section: unknown", saveSectionError.getMessage());
+    }
+
+    @Test
+    void shouldRejectUnknownAction() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> contributor.executeAction("main", "refresh", Map.of()));
+
+        assertEquals("Unknown Perplexity Sonar action: refresh", error.getMessage());
+    }
+
+    @Test
+    void shouldFallbackToExistingValuesWhenTypesAreInvalid() {
+        contributor.saveSection("main", Map.of(
+                "enabled", "false",
+                "apiKey", "",
+                "defaultModel", 123,
+                "defaultSearchMode", 456,
+                "returnRelatedQuestions", "true",
+                "returnImages", "true"));
+
+        ArgumentCaptor<PerplexitySonarPluginConfig> captor = ArgumentCaptor.forClass(PerplexitySonarPluginConfig.class);
+        verify(configService).save(captor.capture());
+        PerplexitySonarPluginConfig saved = captor.getValue();
+        assertFalse(saved.getEnabled());
+        assertEquals("sonar", saved.getDefaultModel());
+        assertEquals("web", saved.getDefaultSearchMode());
+        assertFalse(saved.getReturnRelatedQuestions());
+        assertFalse(saved.getReturnImages());
+        assertDoesNotThrow(() -> contributor.getSection("main"));
     }
 }

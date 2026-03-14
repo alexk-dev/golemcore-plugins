@@ -180,6 +180,13 @@ public class PerplexityAskToolProvider implements ToolProvider {
                     continue;
                 }
                 return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED, mapErrorMessage(ex.statusCode(), ex));
+            } catch (IOException ex) {
+                if (attempt < MAX_RETRIES - 1) {
+                    sleepBeforeRetry((long) (INITIAL_BACKOFF_MS * Math.pow(2, attempt)));
+                    continue;
+                }
+                return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
+                        "Perplexity request failed: " + ex.getMessage());
             } catch (Exception ex) { // NOSONAR - tool I/O should degrade gracefully
                 return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
                         "Perplexity request failed: " + ex.getMessage());
@@ -286,6 +293,7 @@ public class PerplexityAskToolProvider implements ToolProvider {
         }
 
         if (response.getRelatedQuestions() != null && !response.getRelatedQuestions().isEmpty()) {
+            appendSectionBreak(output);
             output.append("Related questions:\n");
             for (String relatedQuestion : response.getRelatedQuestions()) {
                 if (hasText(relatedQuestion)) {
@@ -362,6 +370,19 @@ public class PerplexityAskToolProvider implements ToolProvider {
         case 429 -> "Perplexity rate limit exceeded";
         default -> "Perplexity request failed: " + exception.getMessage();
         };
+    }
+
+    private void appendSectionBreak(StringBuilder output) {
+        if (output.length() >= 2
+                && output.charAt(output.length() - 2) == '\n'
+                && output.charAt(output.length() - 1) == '\n') {
+            return;
+        }
+        if (output.length() >= 1 && output.charAt(output.length() - 1) == '\n') {
+            output.append('\n');
+            return;
+        }
+        output.append("\n\n");
     }
 
     private boolean shouldRetry(int statusCode) {
