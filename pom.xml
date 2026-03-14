@@ -70,6 +70,7 @@
         <module>golemcore/elevenlabs</module>
         <module>golemcore/whisper</module>
         <module>golemcore/browser</module>
+        <module>golemcore/pinchtab</module>
         <module>golemcore/brave-search</module>
         <module>golemcore/browserless</module>
         <module>golemcore/tavily-search</module>
