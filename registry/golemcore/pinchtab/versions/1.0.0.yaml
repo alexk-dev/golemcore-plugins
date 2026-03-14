@@ -1,0 +1,13 @@
+id: golemcore/pinchtab
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/pinchtab/1.0.0/golemcore-pinchtab-plugin-1.0.0.jar"
+checksumSha256: "172778f75c47b242a3d165524fec9f899b1c02756365e7517bd21aaf500e0709"
+publishedAt: "2026-03-13T00:21:40Z"
+sourceCommit: "7cc1b15f8a58424a9c7aa410ecd3cd22c8d436d0"
+entrypoint: me.golemcore.plugins.golemcore.pinchtab.PinchTabPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/pinchtab"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev
