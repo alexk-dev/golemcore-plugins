@@ -1,11 +1,12 @@
 id: golemcore/perplexity-sonar
-provider: golemcore
-name: perplexity-sonar
 version: 1.1.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/perplexity-sonar/1.1.0/golemcore-perplexity-sonar-plugin-1.1.0.jar"
+checksumSha256: "e14b6d99fb54ff6729081ac01956ec5876ffd03e0e038270e23962d502df0976"
+publishedAt: "2026-03-14T19:33:30Z"
+sourceCommit: "241538b86b0174239bd6cbf99fd1ccdc529a4339"
 entrypoint: me.golemcore.plugins.golemcore.perplexitysonar.PerplexitySonarPluginBootstrap
-description: "Perplexity Sonar grounded-answer plugin with configurable model selection and synchronous completions."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/perplexity-sonar"
 license: "Apache-2.0"
 maintainers:
