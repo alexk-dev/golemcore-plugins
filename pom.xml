@@ -10,10 +10,35 @@
     <packaging>pom</packaging>
     <name>golemcore-plugins</name>
     <description>External plugin repository for GolemCore runtime extensions</description>
+    <url>https://github.com/alexk-dev/golemcore-plugins</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Alex</name>
+            <email>772122@gmail.com</email>
+            <organization>GolemCore</organization>
+            <organizationUrl>https://github.com/alexk-dev</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/alexk-dev/golemcore-plugins.git</connection>
+        <developerConnection>scm:git:git@github.com:alexk-dev/golemcore-plugins.git</developerConnection>
+        <url>https://github.com/alexk-dev/golemcore-plugins</url>
+    </scm>
 
     <properties>
         <java.version>25</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.outputTimestamp>2026-03-07T00:00:00Z</project.build.outputTimestamp>
         <plugin.api.version>1.0.0</plugin.api.version>
         <spring.boot.version>4.0.3</spring.boot.version>
@@ -30,6 +55,12 @@
         <maven.surefire.plugin.version>3.5.4</maven.surefire.plugin.version>
         <maven.antrun.plugin.version>3.2.0</maven.antrun.plugin.version>
         <maven.shade.plugin.version>3.6.1</maven.shade.plugin.version>
+        <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+        <maven.javadoc.plugin.version>3.11.2</maven.javadoc.plugin.version>
+        <maven.gpg.plugin.version>3.2.8</maven.gpg.plugin.version>
+        <central.publishing.maven.plugin.version>0.9.0</central.publishing.maven.plugin.version>
+        <central.publishing.server.id>central</central.publishing.server.id>
+        <central.deployment.name>golemcore-plugin-apis</central.deployment.name>
     </properties>
 
     <modules>
@@ -236,6 +267,40 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>central-publish</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven.gpg.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central.publishing.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>${central.publishing.server.id}</publishingServerId>
+                            <deploymentName>${central.deployment.name}-${plugin.api.version}</deploymentName>
+                            <ignorePublishedComponents>true</ignorePublishedComponents>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
