@@ -1,8 +1,6 @@
 package me.golemcore.plugins.golemcore.elevenlabs;
 
 import lombok.RequiredArgsConstructor;
-import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
-import me.golemcore.plugin.api.runtime.model.Secret;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.spi.PluginActionResult;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsBlock;
@@ -24,6 +22,7 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
     private static final String SECTION_KEY = "main";
 
     private final RuntimeConfigService runtimeConfigService;
+    private final ElevenLabsPluginConfigService configService;
 
     @Override
     public String getPluginId() {
@@ -49,7 +48,7 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
     @Override
     public PluginSettingsSection getSection(String sectionKey) {
         requireSection(sectionKey);
-        RuntimeConfig.VoiceConfig voice = runtimeConfigService.getRuntimeConfigForApi().getVoice();
+        ElevenLabsPluginConfig config = configService.getConfig();
         boolean sttActive = PLUGIN_ID.equals(runtimeConfigService.getSttProvider());
         boolean ttsActive = PLUGIN_ID.equals(runtimeConfigService.getTtsProvider());
 
@@ -93,7 +92,7 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
                                 .max(2.0)
                                 .step(0.1)
                                 .build()))
-                .values(buildValues(voice))
+                .values(buildValues(config))
                 .blocks(List.of(PluginSettingsBlock.builder()
                         .type("notice")
                         .key("provider-state")
@@ -110,19 +109,18 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
     @Override
     public PluginSettingsSection saveSection(String sectionKey, Map<String, Object> values) {
         requireSection(sectionKey);
-        RuntimeConfig config = runtimeConfigService.getRuntimeConfig();
-        RuntimeConfig.VoiceConfig voice = config.getVoice();
+        ElevenLabsPluginConfig config = configService.getConfig();
 
         String apiKey = readString(values, "apiKey");
         if (apiKey != null && !apiKey.isBlank()) {
-            voice.setApiKey(Secret.of(apiKey));
+            config.setApiKey(apiKey);
         }
-        voice.setVoiceId(blankToNull(readString(values, "voiceId")));
-        voice.setTtsModelId(blankToNull(readString(values, "ttsModelId")));
-        voice.setSttModelId(blankToNull(readString(values, "sttModelId")));
-        voice.setSpeed(readFloat(values, "speed", 1.0f));
+        config.setVoiceId(readString(values, "voiceId"));
+        config.setTtsModelId(readString(values, "ttsModelId"));
+        config.setSttModelId(readString(values, "sttModelId"));
+        config.setSpeed(readFloat(values, "speed", config.getSpeed()));
 
-        runtimeConfigService.updateRuntimeConfig(config);
+        configService.save(config);
         return getSection(sectionKey);
     }
 
@@ -132,14 +130,13 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
         throw new IllegalArgumentException("Unknown ElevenLabs plugin action: " + actionId);
     }
 
-    private Map<String, Object> buildValues(RuntimeConfig.VoiceConfig voice) {
+    private Map<String, Object> buildValues(ElevenLabsPluginConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("apiKey", "");
-        values.put("voiceId", voice.getVoiceId() != null ? voice.getVoiceId() : "");
-        values.put("ttsModelId", voice.getTtsModelId() != null ? voice.getTtsModelId() : "");
-        values.put("sttModelId", voice.getSttModelId() != null ? voice.getSttModelId() : "");
-        Float speed = voice.getSpeed();
-        values.put("speed", speed != null ? speed : 1.0f);
+        values.put("voiceId", config.getVoiceId());
+        values.put("ttsModelId", config.getTtsModelId());
+        values.put("sttModelId", config.getSttModelId());
+        values.put("speed", config.getSpeed());
         return values;
     }
 
@@ -157,10 +154,6 @@ public class ElevenLabsPluginSettingsContributor implements PluginSettingsContri
     private String readString(Map<String, Object> values, String key) {
         Object value = values.get(key);
         return value != null ? String.valueOf(value) : null;
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
     }
 
     private void requireSection(String sectionKey) {

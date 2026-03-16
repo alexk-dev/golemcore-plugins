@@ -29,6 +29,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginConfig;
+import me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginConfigService;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -77,12 +79,14 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
 
     private final OkHttpClient okHttpClient;
     private final RuntimeConfigService runtimeConfigService;
+    private final ElevenLabsPluginConfigService configService;
     private final ObjectMapper objectMapper;
 
     @PostConstruct
     void init() {
         boolean voiceEnabled = runtimeConfigService.isVoiceEnabled();
-        String apiKey = runtimeConfigService.getVoiceApiKey();
+        ElevenLabsPluginConfig config = configService.getConfig();
+        String apiKey = config.getApiKey();
         boolean hasApiKey = apiKey != null && !apiKey.isBlank();
         if (voiceEnabled && !hasApiKey) {
             log.warn("[ElevenLabs] Voice is ENABLED but API key is NOT configured — "
@@ -91,8 +95,8 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
         log.info("[ElevenLabs] Adapter initialized: enabled={}, apiKeyConfigured={}, sttProvider={}, "
                 + "ttsProvider={}, voiceId={}, sttModel={}, ttsModel={}",
                 voiceEnabled, hasApiKey, runtimeConfigService.getSttProvider(), runtimeConfigService.getTtsProvider(),
-                runtimeConfigService.getVoiceId(),
-                runtimeConfigService.getSttModelId(), runtimeConfigService.getTtsModelId());
+                config.getVoiceId(),
+                config.getSttModelId(), config.getTtsModelId());
     }
 
     @Override
@@ -170,8 +174,9 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
     @SuppressWarnings("PMD.CloseResource") // ResponseBody is closed when Response is closed in try-with-resources
     private VoicePort.TranscriptionResult doTranscribe(byte[] audioData, AudioFormat format) {
         try {
-            String apiKey = requireApiKey();
-            String sttModelId = runtimeConfigService.getSttModelId();
+            ElevenLabsPluginConfig config = configService.getConfig();
+            String apiKey = requireApiKey(config);
+            String sttModelId = config.getSttModelId();
 
             String mimeType = format != null ? format.getMimeType() : "audio/ogg";
             String extension = format != null ? format.getExtension() : "ogg";
@@ -237,17 +242,18 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
     }
 
     @SuppressWarnings("PMD.CloseResource") // ResponseBody is closed when Response is closed in try-with-resources
-    private byte[] doSynthesize(String text, VoicePort.VoiceConfig config) {
+    private byte[] doSynthesize(String text, VoicePort.VoiceConfig requestConfig) {
         try {
             String ttsProvider = runtimeConfigService.getTtsProvider();
             if (!PROVIDER_ID.equals(ttsProvider) && !LEGACY_PROVIDER_ID.equals(ttsProvider)) {
                 throw new IllegalStateException("Unsupported TTS provider: " + ttsProvider);
             }
-            String apiKey = requireApiKey();
+            ElevenLabsPluginConfig config = configService.getConfig();
+            String apiKey = requireApiKey(config);
 
-            String voiceId = config.voiceId() != null ? config.voiceId() : runtimeConfigService.getVoiceId();
-            String modelId = config.modelId() != null ? config.modelId() : runtimeConfigService.getTtsModelId();
-            float speed = config.speed() > 0 ? config.speed() : runtimeConfigService.getVoiceSpeed();
+            String voiceId = requestConfig.voiceId() != null ? requestConfig.voiceId() : config.getVoiceId();
+            String modelId = requestConfig.modelId() != null ? requestConfig.modelId() : config.getTtsModelId();
+            float speed = requestConfig.speed() > 0 ? requestConfig.speed() : config.getSpeed();
 
             log.info("[ElevenLabs] TTS request: {} chars, voice={}, model={}, speed={}",
                     text.length(), voiceId, modelId, speed);
@@ -288,8 +294,8 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
         }
     }
 
-    private String requireApiKey() {
-        String apiKey = runtimeConfigService.getVoiceApiKey();
+    private String requireApiKey(ElevenLabsPluginConfig config) {
+        String apiKey = config.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("[ElevenLabs] Request rejected: API key not configured");
             throw new IllegalStateException("ElevenLabs API key not configured");
@@ -302,7 +308,7 @@ public class ElevenLabsAdapter implements SttProvider, TtsProvider {
         if (!runtimeConfigService.isVoiceEnabled()) {
             return false;
         }
-        String apiKey = runtimeConfigService.getVoiceApiKey();
+        String apiKey = configService.getConfig().getApiKey();
         return apiKey != null && !apiKey.isBlank();
     }
 
