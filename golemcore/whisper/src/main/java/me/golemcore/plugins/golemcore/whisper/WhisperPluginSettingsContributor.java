@@ -1,8 +1,6 @@
 package me.golemcore.plugins.golemcore.whisper;
 
 import lombok.RequiredArgsConstructor;
-import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
-import me.golemcore.plugin.api.runtime.model.Secret;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.spi.PluginActionResult;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsBlock;
@@ -24,6 +22,7 @@ public class WhisperPluginSettingsContributor implements PluginSettingsContribut
     private static final String SECTION_KEY = "main";
 
     private final RuntimeConfigService runtimeConfigService;
+    private final WhisperPluginConfigService configService;
 
     @Override
     public String getPluginId() {
@@ -38,7 +37,7 @@ public class WhisperPluginSettingsContributor implements PluginSettingsContribut
                 .provider("golemcore")
                 .sectionKey(SECTION_KEY)
                 .title("Voice: Whisper")
-                .description("Whisper-compatible STT endpoint URL and optional API key.")
+                .description("Whisper-compatible voice endpoint URL, API key, and TTS defaults.")
                 .blockKey("tools")
                 .blockTitle("Tools")
                 .blockDescription("Tool-specific runtime behavior and integrations")
@@ -49,35 +48,61 @@ public class WhisperPluginSettingsContributor implements PluginSettingsContribut
     @Override
     public PluginSettingsSection getSection(String sectionKey) {
         requireSection(sectionKey);
-        RuntimeConfig.VoiceConfig voice = runtimeConfigService.getRuntimeConfigForApi().getVoice();
-        boolean active = PLUGIN_ID.equals(runtimeConfigService.getSttProvider());
+        WhisperPluginConfig config = configService.getConfig();
+        boolean sttActive = PLUGIN_ID.equals(runtimeConfigService.getSttProvider());
+        boolean ttsActive = PLUGIN_ID.equals(runtimeConfigService.getTtsProvider());
         return PluginSettingsSection.builder()
                 .title("Whisper")
-                .description("Configure any OpenAI-compatible speech-to-text endpoint as a loadable plugin.")
+                .description(
+                        "Configure an OpenAI-compatible speech-to-text and text-to-speech endpoint as a loadable plugin.")
                 .fields(List.of(
                         PluginSettingsField.builder()
-                                .key("whisperSttUrl")
+                                .key("baseUrl")
                                 .type("url")
-                                .label("Whisper STT URL")
+                                .label("Whisper Voice URL")
                                 .description("Base URL for the Whisper-compatible server.")
                                 .placeholder("http://localhost:5092")
                                 .build(),
                         PluginSettingsField.builder()
-                                .key("whisperSttApiKey")
+                                .key("apiKey")
                                 .type("secret")
                                 .label("Whisper API Key")
                                 .description("Optional bearer token for the STT endpoint.")
                                 .placeholder("Enter API key")
+                                .build(),
+                        PluginSettingsField.builder()
+                                .key("voiceId")
+                                .type("text")
+                                .label("TTS Voice")
+                                .description("Voice name or identifier used for speech synthesis.")
+                                .placeholder(WhisperPluginConfig.DEFAULT_VOICE_ID)
+                                .build(),
+                        PluginSettingsField.builder()
+                                .key("ttsModelId")
+                                .type("text")
+                                .label("TTS Model")
+                                .description("Model id used for Whisper-compatible text-to-speech.")
+                                .placeholder(WhisperPluginConfig.DEFAULT_TTS_MODEL_ID)
+                                .build(),
+                        PluginSettingsField.builder()
+                                .key("speed")
+                                .type("number")
+                                .label("Voice Speed")
+                                .description("Playback speed multiplier for TTS responses.")
+                                .min(0.5)
+                                .max(2.0)
+                                .step(0.1)
                                 .build()))
-                .values(buildValues(voice))
+                .values(buildValues(config))
                 .blocks(List.of(PluginSettingsBlock.builder()
                         .type("notice")
                         .key("provider-state")
                         .title("Provider state")
-                        .variant(active ? "info" : "secondary")
-                        .text(active
-                                ? "Whisper is currently the active STT provider."
-                                : "Whisper is configured but inactive. Use Voice Routing to make it the active STT provider.")
+                        .variant(sttActive || ttsActive ? "info" : "secondary")
+                        .text(String.format(
+                                "STT: %s. TTS: %s. Use Voice Routing to switch the active provider selection.",
+                                sttActive ? "active" : "inactive",
+                                ttsActive ? "active" : "inactive"))
                         .build()))
                 .build();
     }
@@ -85,16 +110,17 @@ public class WhisperPluginSettingsContributor implements PluginSettingsContribut
     @Override
     public PluginSettingsSection saveSection(String sectionKey, Map<String, Object> values) {
         requireSection(sectionKey);
-        RuntimeConfig config = runtimeConfigService.getRuntimeConfig();
-        RuntimeConfig.VoiceConfig voice = config.getVoice();
+        WhisperPluginConfig config = configService.getConfig();
 
-        voice.setWhisperSttUrl(blankToNull(readString(values, "whisperSttUrl")));
-        String apiKey = readString(values, "whisperSttApiKey");
+        config.setBaseUrl(readString(values, "baseUrl"));
+        String apiKey = readString(values, "apiKey");
         if (apiKey != null && !apiKey.isBlank()) {
-            voice.setWhisperSttApiKey(Secret.of(apiKey));
+            config.setApiKey(apiKey);
         }
-
-        runtimeConfigService.updateRuntimeConfig(config);
+        config.setVoiceId(readString(values, "voiceId"));
+        config.setTtsModelId(readString(values, "ttsModelId"));
+        config.setSpeed(readFloat(values, "speed", config.getSpeed()));
+        configService.save(config);
         return getSection(sectionKey);
     }
 
@@ -104,20 +130,30 @@ public class WhisperPluginSettingsContributor implements PluginSettingsContribut
         throw new IllegalArgumentException("Unknown Whisper plugin action: " + actionId);
     }
 
-    private Map<String, Object> buildValues(RuntimeConfig.VoiceConfig voice) {
+    private Map<String, Object> buildValues(WhisperPluginConfig config) {
         Map<String, Object> values = new LinkedHashMap<>();
-        values.put("whisperSttUrl", voice.getWhisperSttUrl() != null ? voice.getWhisperSttUrl() : "");
-        values.put("whisperSttApiKey", "");
+        values.put("baseUrl", config.getBaseUrl() != null ? config.getBaseUrl() : "");
+        values.put("apiKey", "");
+        values.put("voiceId", config.getVoiceId());
+        values.put("ttsModelId", config.getTtsModelId());
+        values.put("speed", config.getSpeed());
         return values;
+    }
+
+    private Float readFloat(Map<String, Object> values, String key, float fallback) {
+        Object value = values.get(key);
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        if (value instanceof String stringValue && !stringValue.isBlank()) {
+            return Float.parseFloat(stringValue);
+        }
+        return fallback;
     }
 
     private String readString(Map<String, Object> values, String key) {
         Object value = values.get(key);
         return value != null ? String.valueOf(value) : null;
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
     }
 
     private void requireSection(String sectionKey) {

@@ -11,10 +11,10 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.2.0</version>
     <artifactId>golemcore-whisper-plugin</artifactId>
     <name>golemcore/whisper</name>
-    <description>Whisper-compatible STT provider plugin for GolemCore</description>
+    <description>Whisper-compatible voice provider plugin for GolemCore</description>
 
     <properties>
         <plugin.owner>golemcore</plugin.owner>
