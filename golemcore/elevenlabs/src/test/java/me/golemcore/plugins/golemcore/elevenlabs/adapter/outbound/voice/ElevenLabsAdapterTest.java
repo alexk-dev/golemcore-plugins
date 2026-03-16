@@ -5,6 +5,8 @@ import me.golemcore.plugin.api.extension.model.AudioFormat;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.port.outbound.VoicePort;
 import me.golemcore.bot.testsupport.http.OkHttpMockEngine;
+import me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginConfig;
+import me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginConfigService;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,8 @@ class ElevenLabsAdapterTest {
     private OkHttpMockEngine httpEngine;
     private ElevenLabsAdapter adapter;
     private RuntimeConfigService runtimeConfigService;
+    private ElevenLabsPluginConfigService configService;
+    private ElevenLabsPluginConfig pluginConfig;
 
     @BeforeEach
     void setUp() {
@@ -50,13 +54,18 @@ class ElevenLabsAdapterTest {
 
         runtimeConfigService = mock(RuntimeConfigService.class);
         when(runtimeConfigService.isVoiceEnabled()).thenReturn(true);
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("test-api-key");
-        when(runtimeConfigService.getVoiceId()).thenReturn("test-voice-id");
-        when(runtimeConfigService.getTtsModelId()).thenReturn("eleven_multilingual_v2");
-        when(runtimeConfigService.getSttModelId()).thenReturn("scribe_v1");
         when(runtimeConfigService.getTtsProvider()).thenReturn("golemcore/elevenlabs");
-        when(runtimeConfigService.getVoiceSpeed()).thenReturn(1.0f);
-        adapter = new ElevenLabsAdapter(client, runtimeConfigService, new ObjectMapper()) {
+        when(runtimeConfigService.getSttProvider()).thenReturn("golemcore/elevenlabs");
+        configService = mock(ElevenLabsPluginConfigService.class);
+        pluginConfig = ElevenLabsPluginConfig.builder()
+                .apiKey("test-api-key")
+                .voiceId("test-voice-id")
+                .ttsModelId("eleven_multilingual_v2")
+                .sttModelId("scribe_v1")
+                .speed(1.0f)
+                .build();
+        when(configService.getConfig()).thenAnswer(invocation -> pluginConfig);
+        adapter = new ElevenLabsAdapter(client, runtimeConfigService, configService, new ObjectMapper()) {
             @Override
             protected String getSttUrl() {
                 return BASE_URL + "v1/speech-to-text";
@@ -204,7 +213,7 @@ class ElevenLabsAdapterTest {
 
     @Test
     void isNotAvailableWithoutApiKey() {
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("");
+        pluginConfig.setApiKey("");
         assertFalse(adapter.isAvailable());
     }
 
@@ -216,19 +225,19 @@ class ElevenLabsAdapterTest {
 
     @Test
     void isNotAvailableWithNullApiKey() {
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn(null);
+        pluginConfig.setApiKey(null);
         assertFalse(adapter.isAvailable());
     }
 
     @Test
     void transcribeFailsWithoutApiKey() {
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("");
+        pluginConfig.setApiKey("");
         assertTranscribeThrowsAny();
     }
 
     @Test
     void synthesizeFailsWithoutApiKey() {
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("");
+        pluginConfig.setApiKey("");
         CompletableFuture<byte[]> future = adapter.synthesize(STT_TEXT, VoicePort.VoiceConfig.defaultConfig());
         assertThrows(Exception.class, () -> future.get(5, TimeUnit.SECONDS));
     }
@@ -324,7 +333,7 @@ class ElevenLabsAdapterTest {
 
     @Test
     void transcribeUsesConfiguredSttModelId() throws Exception {
-        when(runtimeConfigService.getSttModelId()).thenReturn("scribe_v2");
+        pluginConfig.setSttModelId("scribe_v2");
         httpEngine.enqueueJson(200, "{\"text\":\"Hello\",\"language_code\":\"en\"}");
 
         adapter.transcribe(new byte[] { 1 }, AudioFormat.OGG_OPUS).get(5, TimeUnit.SECONDS);
@@ -359,7 +368,7 @@ class ElevenLabsAdapterTest {
 
     @Test
     void synthesizeNullApiKeyOnCall() {
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn(null);
+        pluginConfig.setApiKey(null);
         assertSynthesizeThrowsAny();
     }
 
@@ -383,7 +392,7 @@ class ElevenLabsAdapterTest {
     @Test
     void initLogsWarnWhenEnabledButNoKey() {
         when(runtimeConfigService.isVoiceEnabled()).thenReturn(true);
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("");
+        pluginConfig.setApiKey("");
         // init() should not throw, just log warn
         assertDoesNotThrow(() -> adapter.init());
     }
@@ -391,7 +400,7 @@ class ElevenLabsAdapterTest {
     @Test
     void initLogsWhenDisabled() {
         when(runtimeConfigService.isVoiceEnabled()).thenReturn(false);
-        when(runtimeConfigService.getVoiceApiKey()).thenReturn("");
+        pluginConfig.setApiKey("");
         // init() should not throw even when disabled
         assertDoesNotThrow(() -> adapter.init());
     }
