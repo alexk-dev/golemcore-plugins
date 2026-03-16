@@ -1,11 +1,12 @@
 id: golemcore/elevenlabs
-provider: golemcore
-name: elevenlabs
 version: 1.1.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/elevenlabs/1.1.0/golemcore-elevenlabs-plugin-1.1.0.jar"
+checksumSha256: "8b35a0a3cdfc4ac28103c089bcb9e861c09af21a18a61e4a1d979287d31f0dd4"
+publishedAt: "2026-03-16T16:45:23Z"
+sourceCommit: "ea08df58f53cb99391a57afa3baad60cab8e9658"
 entrypoint: me.golemcore.plugins.golemcore.elevenlabs.ElevenLabsPluginBootstrap
-description: "ElevenLabs-backed STT/TTS provider plugin."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/elevenlabs"
 license: "Apache-2.0"
 maintainers:
