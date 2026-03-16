@@ -24,9 +24,11 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.golemcore.plugin.api.extension.model.AudioFormat;
-import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.spi.SttProvider;
 import me.golemcore.plugin.api.extension.port.outbound.VoicePort;
+import me.golemcore.plugin.api.runtime.RuntimeConfigService;
+import me.golemcore.plugins.golemcore.whisper.WhisperPluginConfig;
+import me.golemcore.plugins.golemcore.whisper.WhisperPluginConfigService;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -58,6 +60,7 @@ public class WhisperCompatibleSttAdapter implements SttProvider {
 
     private final OkHttpClient okHttpClient;
     private final RuntimeConfigService runtimeConfigService;
+    private final WhisperPluginConfigService configService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -91,8 +94,9 @@ public class WhisperCompatibleSttAdapter implements SttProvider {
     }
 
     public VoicePort.TranscriptionResult doTranscribe(byte[] audioData, AudioFormat format) {
-        String baseUrl = runtimeConfigService.getWhisperSttUrl();
-        if (baseUrl.isBlank()) {
+        WhisperPluginConfig config = configService.getConfig();
+        String baseUrl = config.getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("Whisper STT URL is not configured");
         }
 
@@ -115,7 +119,7 @@ public class WhisperCompatibleSttAdapter implements SttProvider {
                 .url(getTranscriptionUrl(baseUrl))
                 .post(requestBody);
 
-        String apiKey = runtimeConfigService.getWhisperSttApiKey();
+        String apiKey = config.getApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
             requestBuilder.header("Authorization", "Bearer " + apiKey);
         }
@@ -143,8 +147,8 @@ public class WhisperCompatibleSttAdapter implements SttProvider {
      * @return true if the server responds with 2xx on GET /health
      */
     public boolean isHealthy() {
-        String baseUrl = runtimeConfigService.getWhisperSttUrl();
-        if (baseUrl.isBlank()) {
+        String baseUrl = configService.getConfig().getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
             return false;
         }
         try {

@@ -2,9 +2,11 @@ package me.golemcore.plugins.golemcore.whisper.adapter.outbound.voice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import me.golemcore.plugin.api.extension.model.AudioFormat;
-import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.port.outbound.VoicePort;
+import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.bot.testsupport.http.OkHttpMockEngine;
+import me.golemcore.plugins.golemcore.whisper.WhisperPluginConfig;
+import me.golemcore.plugins.golemcore.whisper.WhisperPluginConfigService;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,8 @@ class WhisperCompatibleSttAdapterTest {
     private OkHttpMockEngine httpEngine;
     private WhisperCompatibleSttAdapter adapter;
     private RuntimeConfigService runtimeConfigService;
+    private WhisperPluginConfigService configService;
+    private WhisperPluginConfig config;
 
     @BeforeEach
     void setUp() {
@@ -38,10 +42,14 @@ class WhisperCompatibleSttAdapterTest {
 
         runtimeConfigService = mock(RuntimeConfigService.class);
         when(runtimeConfigService.isVoiceEnabled()).thenReturn(true);
-        when(runtimeConfigService.getWhisperSttUrl()).thenReturn(BASE_URL);
-        when(runtimeConfigService.getWhisperSttApiKey()).thenReturn("");
+        configService = mock(WhisperPluginConfigService.class);
+        config = WhisperPluginConfig.builder()
+                .baseUrl(BASE_URL)
+                .apiKey(null)
+                .build();
+        when(configService.getConfig()).thenReturn(config);
 
-        adapter = new WhisperCompatibleSttAdapter(client, runtimeConfigService, new ObjectMapper()) {
+        adapter = new WhisperCompatibleSttAdapter(client, runtimeConfigService, configService, new ObjectMapper()) {
             @Override
             protected void sleepBeforeRetry(long backoffMs) {
                 // No-op in tests to avoid real backoff delays.
@@ -91,7 +99,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldSendAuthHeaderWhenApiKeyConfigured() {
-        when(runtimeConfigService.getWhisperSttApiKey()).thenReturn("sk-test-key");
+        config.setApiKey("sk-test-key");
         httpEngine.enqueueJson(200, "{\"text\":\"test\",\"language\":\"en\"}");
 
         adapter.doTranscribe(new byte[] { 1 }, AudioFormat.OGG_OPUS);
@@ -103,7 +111,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldNotSendAuthHeaderWhenApiKeyEmpty() {
-        when(runtimeConfigService.getWhisperSttApiKey()).thenReturn("");
+        config.setApiKey("");
         httpEngine.enqueueJson(200, "{\"text\":\"test\",\"language\":\"en\"}");
 
         adapter.doTranscribe(new byte[] { 1 }, AudioFormat.OGG_OPUS);
@@ -115,7 +123,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldNotSendAuthHeaderWhenApiKeyBlank() {
-        when(runtimeConfigService.getWhisperSttApiKey()).thenReturn("   ");
+        config.setApiKey("   ");
         httpEngine.enqueueJson(200, "{\"text\":\"test\",\"language\":\"en\"}");
 
         adapter.doTranscribe(new byte[] { 1 }, AudioFormat.OGG_OPUS);
@@ -150,7 +158,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldThrowWhenUrlNotConfigured() {
-        when(runtimeConfigService.getWhisperSttUrl()).thenReturn("");
+        config.setBaseUrl("");
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> adapter.doTranscribe(new byte[] { 1 }, AudioFormat.OGG_OPUS));
@@ -173,7 +181,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldReportUnhealthyWhenUrlEmpty() {
-        when(runtimeConfigService.getWhisperSttUrl()).thenReturn("");
+        config.setBaseUrl("");
 
         assertFalse(adapter.isHealthy());
     }
@@ -245,7 +253,7 @@ class WhisperCompatibleSttAdapterTest {
 
     @Test
     void shouldNormalizeBaseUrlWithTrailingSlash() {
-        when(runtimeConfigService.getWhisperSttUrl()).thenReturn(BASE_URL + "/");
+        config.setBaseUrl(BASE_URL + "/");
         httpEngine.enqueueJson(200, "{\"text\":\"ok\",\"language\":\"en\"}");
 
         adapter.doTranscribe(new byte[] { 1 }, AudioFormat.OGG_OPUS);
