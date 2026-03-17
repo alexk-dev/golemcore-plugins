@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <artifactId>golemcore-plugin-runtime-api</artifactId>
     <name>golemcore-plugin-runtime-api</name>
     <description>Host-facing interfaces and DTOs for isolated GolemCore plugins</description>

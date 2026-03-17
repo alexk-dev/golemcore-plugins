@@ -25,6 +25,8 @@ import me.golemcore.plugin.api.extension.loop.AgentLoop;
 import me.golemcore.plugin.api.extension.model.AudioFormat;
 import me.golemcore.plugin.api.extension.model.ContextAttributes;
 import me.golemcore.plugin.api.extension.model.Message;
+import me.golemcore.plugin.api.extension.model.ProgressUpdate;
+import me.golemcore.plugin.api.extension.model.ProgressUpdateType;
 import me.golemcore.plugin.api.runtime.UserPreferencesService;
 import me.golemcore.plugin.api.runtime.i18n.MessageService;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
@@ -51,6 +53,7 @@ import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVoice;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
@@ -146,6 +149,7 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
     private volatile String registeredBotToken;
     private final Object lifecycleLock = new Object();
     private final Map<String, InviteAttemptState> inviteAttemptStates = new ConcurrentHashMap<>();
+    private final Map<String, ProgressStatusMessage> progressMessages = new ConcurrentHashMap<>();
 
     /**
      * Package-private setter for testing — allows injecting a mock TelegramClient.
@@ -766,6 +770,34 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
     }
 
     @Override
+    public CompletableFuture<Void> sendProgressUpdate(String chatId, ProgressUpdate update) {
+        return CompletableFuture.runAsync(() -> {
+            if (chatId == null || chatId.isBlank() || update == null) {
+                return;
+            }
+            if (update.type() == ProgressUpdateType.CLEAR) {
+                progressMessages.remove(chatId);
+                return;
+            }
+
+            String rendered = renderProgressUpdate(update);
+            ProgressStatusMessage current = progressMessages.get(chatId);
+            if (current != null && rendered.equals(current.text())) {
+                return;
+            }
+            if (current != null && tryEditProgressMessage(chatId, current.messageId(), rendered)) {
+                progressMessages.put(chatId, new ProgressStatusMessage(current.messageId(), rendered));
+                return;
+            }
+
+            Integer messageId = sendProgressMessage(chatId, rendered);
+            if (messageId != null) {
+                progressMessages.put(chatId, new ProgressStatusMessage(messageId, rendered));
+            }
+        });
+    }
+
+    @Override
     public CompletableFuture<Void> sendVoice(String chatId, byte[] voiceData) {
         return CompletableFuture.runAsync(() -> {
             try {
@@ -810,6 +842,43 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
                     && reqEx.getApiResponse().contains("VOICE_MESSAGES_FORBIDDEN");
         }
         return false;
+    }
+
+    private Integer sendProgressMessage(String chatId, String rendered) {
+        try {
+            SendMessage sendMessage = SendMessage.builder()
+                    .chatId(chatId)
+                    .text(TelegramHtmlFormatter.format(rendered))
+                    .parseMode("HTML")
+                    .build();
+            org.telegram.telegrambots.meta.api.objects.message.Message sent = executeWithRetry(
+                    () -> telegramClient.execute(sendMessage));
+            return sent != null ? sent.getMessageId() : null;
+        } catch (Exception e) {
+            log.warn("Failed to send progress update to chat {}: {}", chatId, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean tryEditProgressMessage(String chatId, int messageId, String rendered) {
+        try {
+            EditMessageText edit = EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .text(TelegramHtmlFormatter.format(rendered))
+                    .parseMode("HTML")
+                    .build();
+            executeWithRetry(() -> telegramClient.execute(edit));
+            return true;
+        } catch (Exception e) {
+            log.debug("Failed to edit progress update in chat {}: {}", chatId, e.getMessage());
+            return false;
+        }
+    }
+
+    private String renderProgressUpdate(ProgressUpdate update) {
+        String prefix = update.type() == ProgressUpdateType.INTENT ? "Working on this:\n" : "Progress update:\n";
+        return prefix + update.text();
     }
 
     @Override
@@ -860,6 +929,9 @@ public class TelegramAdapter implements ChannelPort, LongPollingSingleThreadUpda
         if (caption.length() <= TELEGRAM_MAX_CAPTION_LENGTH)
             return caption;
         return caption.substring(0, TELEGRAM_MAX_CAPTION_LENGTH - 3) + "...";
+    }
+
+    private record ProgressStatusMessage(int messageId, String text) {
     }
 
     private static String truncateForLog(String text, int maxLen) {

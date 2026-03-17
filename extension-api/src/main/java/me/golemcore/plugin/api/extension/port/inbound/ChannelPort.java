@@ -19,6 +19,7 @@ package me.golemcore.plugin.api.extension.port.inbound;
  */
 
 import me.golemcore.plugin.api.extension.model.Message;
+import me.golemcore.plugin.api.extension.model.ProgressUpdate;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -74,6 +75,14 @@ public interface ChannelPort {
      * Sends an audio voice message to the specified chat.
      */
     CompletableFuture<Void> sendVoice(String chatId, byte[] voiceData);
+
+    /**
+     * Sends a high-level progress update for the current turn. Default
+     * implementation is a no-op.
+     */
+    default CompletableFuture<Void> sendProgressUpdate(String chatId, ProgressUpdate update) {
+        return CompletableFuture.completedFuture(null);
+    }
 
     /**
      * Checks if a user is authorized to interact with the bot based on allowlist.
