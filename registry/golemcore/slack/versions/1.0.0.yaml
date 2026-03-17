@@ -1,0 +1,13 @@
+id: golemcore/slack
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/slack/1.0.0/golemcore-slack-plugin-1.0.0.jar"
+checksumSha256: "7cc3c5e8c0e0807c40b0ef45ce335f677dca18227784fd4b88ba0a74bc33ccb6"
+publishedAt: "2026-03-17T15:00:12Z"
+sourceCommit: "40e66d9a1d9672bf040c1a42a024fb79948a26a8"
+entrypoint: me.golemcore.plugins.golemcore.slack.SlackPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

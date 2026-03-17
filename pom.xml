@@ -46,6 +46,7 @@
         <playwright.version>1.49.0</playwright.version>
         <angus.mail.version>2.0.5</angus.mail.version>
         <telegram.version>9.4.0</telegram.version>
+        <slack.sdk.version>1.45.3</slack.sdk.version>
         <lombok.version>1.18.42</lombok.version>
         <spotbugs.version>4.9.8.2</spotbugs.version>
         <pmd.version>3.28.0</pmd.version>
@@ -67,6 +68,7 @@
         <module>extension-api</module>
         <module>runtime-api</module>
         <module>golemcore/telegram</module>
+        <module>golemcore/slack</module>
         <module>golemcore/elevenlabs</module>
         <module>golemcore/whisper</module>
         <module>golemcore/browser</module>
