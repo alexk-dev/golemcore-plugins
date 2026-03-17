@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -189,10 +190,9 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
             }
         } finally {
             synchronized (lifecycleLock) {
-                if (socketModeApp == modeApp) {
+                if (Objects.equals(socketModeApp, modeApp)) {
                     connected = false;
-                    socketModeApp = null;
-                    socketModeThread = null;
+                    clearSocketReferences();
                 }
             }
         }
@@ -202,10 +202,8 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
         connected = false;
 
         SocketModeApp currentApp = socketModeApp;
-        socketModeApp = null;
-
         Thread currentThread = socketModeThread;
-        socketModeThread = null;
+        clearSocketReferences();
 
         if (currentApp != null) {
             try {
@@ -218,6 +216,12 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
         if (currentThread != null) {
             currentThread.interrupt();
         }
+    }
+
+    @SuppressWarnings("PMD.NullAssignment")
+    private void clearSocketReferences() {
+        socketModeApp = null;
+        socketModeThread = null;
     }
 
     private void emitAppMention(AppMentionEvent event, Consumer<SlackInboundEnvelope> inboundHandler) {

@@ -163,12 +163,17 @@ public class SlackPlanApprovalAdapter {
         List<PlanStep> steps = plan.getSteps() == null ? List.of() : plan.getSteps();
         for (int index = 0; index < steps.size(); index++) {
             PlanStep step = steps.get(index);
-            String line = (index + 1) + ". `" + SlackTextSupport.escapeMrkdwn(step.getToolName()) + "`";
+            StringBuilder line = new StringBuilder()
+                    .append(index + 1)
+                    .append(". `")
+                    .append(SlackTextSupport.escapeMrkdwn(step.getToolName()))
+                    .append('`');
             if (step.getDescription() != null && !step.getDescription().isBlank()) {
-                line += " - " + SlackTextSupport.escapeMrkdwn(
-                        SlackTextSupport.truncate(step.getDescription(), 80));
+                line.append(" - ")
+                        .append(SlackTextSupport.escapeMrkdwn(
+                                SlackTextSupport.truncate(step.getDescription(), 80)));
             }
-            lines.add(line);
+            lines.add(line.toString());
         }
         if (plan.getModelTier() != null && !plan.getModelTier().isBlank()) {
             lines.add("Tier: " + SlackTextSupport.escapeMrkdwn(plan.getModelTier()));

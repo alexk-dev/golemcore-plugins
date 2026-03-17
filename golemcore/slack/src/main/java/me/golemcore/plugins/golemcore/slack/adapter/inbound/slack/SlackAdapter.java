@@ -7,9 +7,11 @@ import me.golemcore.plugin.api.extension.loop.AgentLoop;
 import me.golemcore.plugin.api.extension.model.ConfirmationCallbackEvent;
 import me.golemcore.plugin.api.extension.model.ContextAttributes;
 import me.golemcore.plugin.api.extension.model.Message;
+import me.golemcore.plugin.api.extension.model.ProgressUpdate;
+import me.golemcore.plugin.api.extension.model.ProgressUpdateType;
 import me.golemcore.plugin.api.extension.port.inbound.ChannelPort;
-import me.golemcore.plugin.api.extension.port.outbound.SessionPort;
 import me.golemcore.plugin.api.extension.model.PlanApprovalCallbackEvent;
+import me.golemcore.plugin.api.extension.port.outbound.SessionPort;
 import me.golemcore.plugins.golemcore.slack.SlackPluginConfig;
 import me.golemcore.plugins.golemcore.slack.SlackPluginConfigService;
 import me.golemcore.plugins.golemcore.slack.SlackRestartEvent;
@@ -23,9 +25,11 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 @Component
@@ -45,6 +49,7 @@ public class SlackAdapter implements ChannelPort {
     private final ApplicationEventPublisher eventPublisher;
 
     private final Object lifecycleLock = new Object();
+    private final Map<String, ProgressStatusMessage> progressMessages = new ConcurrentHashMap<>();
     private volatile Consumer<Message> messageHandler;
     private volatile boolean running;
 
@@ -124,6 +129,48 @@ public class SlackAdapter implements ChannelPort {
     public CompletableFuture<Void> sendVoice(String chatId, byte[] voiceData) {
         log.debug("[Slack] Voice delivery is not supported");
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> sendProgressUpdate(String chatId, ProgressUpdate update) {
+        if (chatId == null || chatId.isBlank() || update == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        if (update.type() == ProgressUpdateType.CLEAR) {
+            progressMessages.remove(chatId);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        SlackPluginConfig config = configService.getConfig();
+        if (!config.isConfigured()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Slack credentials are not configured"));
+        }
+
+        String rendered = renderProgressUpdate(update);
+        ProgressStatusMessage current = progressMessages.get(chatId);
+        if (current != null && rendered.equals(current.text())) {
+            return CompletableFuture.completedFuture(null);
+        }
+        if (current != null) {
+            return slackSocketGateway.updateMessage(
+                    config.getBotToken(),
+                    current.channelId(),
+                    current.messageTs(),
+                    rendered,
+                    List.of())
+                    .handle((ignored, error) -> {
+                        if (error == null) {
+                            progressMessages.put(chatId,
+                                    new ProgressStatusMessage(current.channelId(), current.messageTs(), rendered));
+                            return CompletableFuture.<Void>completedFuture(null);
+                        }
+                        log.debug("[Slack] Failed to update progress message in {}: {}", chatId, error.getMessage());
+                        return postProgressMessage(chatId, config.getBotToken(), rendered);
+                    })
+                    .thenCompose(future -> future);
+        }
+
+        return postProgressMessage(chatId, config.getBotToken(), rendered);
     }
 
     @Override
@@ -271,5 +318,30 @@ public class SlackAdapter implements ChannelPort {
             }
         }
         return message.getChatId();
+    }
+
+    private CompletableFuture<Void> postProgressMessage(String chatId, String botToken, String rendered) {
+        SlackConversationTarget target = SlackConversationTarget.fromTransportChatId(chatId);
+        return slackSocketGateway.postBlocks(botToken, target, rendered, List.of())
+                .handle((posted, error) -> {
+                    if (error != null || posted == null || posted.messageTs() == null) {
+                        log.warn("[Slack] Failed to send progress update to {}: {}", chatId,
+                                error != null ? error.getMessage() : "missing message timestamp");
+                        return null;
+                    }
+                    progressMessages.put(chatId,
+                            new ProgressStatusMessage(posted.channelId(), posted.messageTs(), rendered));
+                    return null;
+                });
+    }
+
+    private String renderProgressUpdate(ProgressUpdate update) {
+        String prefix = update.type() == ProgressUpdateType.INTENT
+                ? "Working on this:\n"
+                : "Progress update:\n";
+        return prefix + update.text();
+    }
+
+    private record ProgressStatusMessage(String channelId, String messageTs, String text) {
     }
 }

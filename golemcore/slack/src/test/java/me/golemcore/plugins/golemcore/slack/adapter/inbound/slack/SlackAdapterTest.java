@@ -5,6 +5,8 @@ import me.golemcore.plugin.api.extension.model.ConfirmationCallbackEvent;
 import me.golemcore.plugin.api.extension.model.ContextAttributes;
 import me.golemcore.plugin.api.extension.model.Message;
 import me.golemcore.plugin.api.extension.model.PlanApprovalCallbackEvent;
+import me.golemcore.plugin.api.extension.model.ProgressUpdate;
+import me.golemcore.plugin.api.extension.model.ProgressUpdateType;
 import me.golemcore.plugin.api.extension.port.outbound.SessionPort;
 import me.golemcore.plugins.golemcore.slack.SlackPluginConfig;
 import me.golemcore.plugins.golemcore.slack.SlackPluginConfigService;
@@ -12,12 +14,14 @@ import me.golemcore.plugins.golemcore.slack.support.SlackActionEnvelope;
 import me.golemcore.plugins.golemcore.slack.support.SlackActionIds;
 import me.golemcore.plugins.golemcore.slack.support.SlackConversationTarget;
 import me.golemcore.plugins.golemcore.slack.support.SlackInboundEnvelope;
+import me.golemcore.plugins.golemcore.slack.support.SlackPostedMessage;
 import me.golemcore.plugins.golemcore.slack.support.SlackSocketGateway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,6 +62,13 @@ class SlackAdapterTest {
                 .build();
         when(configService.getConfig()).thenReturn(config);
         when(socketGateway.postMessage(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(socketGateway.postBlocks(any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(new SlackPostedMessage(
+                        "C999",
+                        "1710000000.500",
+                        "1710000000.123")));
+        when(socketGateway.updateMessage(any(), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test
@@ -89,7 +101,7 @@ class SlackAdapterTest {
 
     @Test
     void shouldIgnoreUnauthorizedUsers() {
-        config.setAllowedUserIds(java.util.List.of("U111"));
+        config.setAllowedUserIds(List.of("U111"));
         adapter.start();
 
         ArgumentCaptor<Consumer<SlackInboundEnvelope>> captor = ArgumentCaptor.forClass(Consumer.class);
@@ -199,5 +211,80 @@ class SlackAdapterTest {
         assertEquals("plan-1", eventCaptor.getValue().planId());
         assertEquals("cancel", eventCaptor.getValue().action());
         assertEquals("D123", eventCaptor.getValue().chatId());
+    }
+
+    @Test
+    void shouldSendProgressUpdatesInThread() {
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.INTENT, "Inspecting the repo", Map.of()))
+                .join();
+
+        ArgumentCaptor<SlackConversationTarget> targetCaptor = ArgumentCaptor.forClass(SlackConversationTarget.class);
+        verify(socketGateway).postBlocks(eq("xoxb-test"), targetCaptor.capture(),
+                eq("Working on this:\nInspecting the repo"),
+                eq(List.of()));
+        SlackConversationTarget target = targetCaptor.getValue();
+        assertEquals("C999", target.channelId());
+        assertEquals("1710000000.123", target.threadTs());
+        assertTrue(target.threaded());
+    }
+
+    @Test
+    void shouldUpdateExistingProgressMessage() {
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.INTENT, "Inspecting the repo", Map.of()))
+                .join();
+
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.SUMMARY, "Checked 6 files and 2 tests", Map.of()))
+                .join();
+
+        verify(socketGateway).updateMessage(
+                "xoxb-test",
+                "C999",
+                "1710000000.500",
+                "Progress update:\nChecked 6 files and 2 tests",
+                List.of());
+        verify(socketGateway, times(1)).postBlocks(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldPostNewProgressMessageWhenUpdateFails() {
+        when(socketGateway.updateMessage(any(), any(), any(), any(), any()))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("update failed")));
+
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.INTENT, "Inspecting the repo", Map.of()))
+                .join();
+
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.SUMMARY, "Checked 6 files and 2 tests", Map.of()))
+                .join();
+
+        verify(socketGateway, times(2)).postBlocks(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldForgetTrackedProgressMessageAfterClear() {
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.INTENT, "Inspecting the repo", Map.of()))
+                .join();
+
+        adapter.sendProgressUpdate("C999::1710000000.123", new ProgressUpdate(ProgressUpdateType.CLEAR, "", Map.of()))
+                .join();
+
+        adapter.sendProgressUpdate(
+                "C999::1710000000.123",
+                new ProgressUpdate(ProgressUpdateType.SUMMARY, "Checked 6 files and 2 tests", Map.of()))
+                .join();
+
+        verify(socketGateway, times(2)).postBlocks(any(), any(), any(), any());
+        verify(socketGateway, never()).updateMessage(any(), any(), any(), any(), any());
     }
 }
