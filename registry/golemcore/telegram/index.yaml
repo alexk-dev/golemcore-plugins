@@ -1,9 +1,10 @@
 id: golemcore/telegram
 owner: golemcore
 name: telegram
-latest: 1.2.0
+latest: 1.2.1
 versions:
   - 1.0.0
   - 1.1.0
   - 1.2.0
+  - 1.2.1
 source: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/telegram"
