@@ -1,11 +1,12 @@
 id: golemcore/slack
-provider: golemcore
-name: slack
 version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/slack/1.0.1/golemcore-slack-plugin-1.0.1.jar"
+checksumSha256: "acba57c76f65f85b5a9f2780983b3e670c49239bbe5ee375da7c3b9e137b1798"
+publishedAt: "2026-03-18T20:11:46Z"
+sourceCommit: "c83fa5b672ed18eb488c0da63d994f1b36fcf498"
 entrypoint: me.golemcore.plugins.golemcore.slack.SlackPluginBootstrap
-description: "Slack Socket Mode channel plugin with thread routing, interactive approvals, and plan approval UI."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack"
 license: "Apache-2.0"
 maintainers:
