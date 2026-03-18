@@ -10,6 +10,7 @@ import me.golemcore.plugin.api.extension.port.inbound.CommandPort;
 import me.golemcore.plugin.api.runtime.security.AllowlistValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,7 +20,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVoice;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
@@ -109,31 +109,32 @@ class TelegramAdapterMessageTest {
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(telegramMessage);
 
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
-                ProgressUpdateType.SUMMARY,
-                "Ran a few checks and grouped the result.",
+                ProgressUpdateType.INTENT,
+                "Working on: checking the current state before making changes.",
                 java.util.Map.of())).get();
 
-        verify(telegramClient).execute(any(SendMessage.class));
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        assertEquals("Working on: checking the current state before making changes.", captor.getValue().getText());
     }
 
     @Test
-    void shouldEditExistingProgressMessage() throws Exception {
+    void shouldSendNewMessageForEachProgressUpdate() throws Exception {
         org.telegram.telegrambots.meta.api.objects.message.Message telegramMessage = mock(
                 org.telegram.telegrambots.meta.api.objects.message.Message.class);
         when(telegramMessage.getMessageId()).thenReturn(77);
         when(telegramClient.execute(any(SendMessage.class))).thenReturn(telegramMessage);
-        when(telegramClient.execute(any(EditMessageText.class))).thenReturn(mock(java.io.Serializable.class));
 
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
                 ProgressUpdateType.INTENT,
-                "Checking the current state before making changes.",
+                "Working on: checking the current state before making changes.",
                 java.util.Map.of())).get();
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
                 ProgressUpdateType.SUMMARY,
                 "Reviewed the repo and grouped the latest shell runs.",
                 java.util.Map.of())).get();
 
-        verify(telegramClient).execute(any(EditMessageText.class));
+        verify(telegramClient, atLeast(2)).execute(any(SendMessage.class));
     }
 
     // ===== sendPhoto =====
