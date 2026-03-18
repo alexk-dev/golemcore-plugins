@@ -1,5 +1,7 @@
 package me.golemcore.plugins.golemcore.slack;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -44,6 +47,7 @@ public class SlackPluginConfig {
         allowedChannelIds = normalizeIdentifiers(allowedChannelIds);
     }
 
+    @JsonIgnore
     public boolean isConfigured() {
         return botToken != null && !botToken.isBlank()
                 && appToken != null && !appToken.isBlank();
