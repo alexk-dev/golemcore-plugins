@@ -1,7 +1,8 @@
 id: golemcore/slack
 owner: golemcore
 name: slack
-latest: 1.0.0
+latest: 1.0.1
 versions:
   - 1.0.0
-source: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack
+  - 1.0.1
+source: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack"
