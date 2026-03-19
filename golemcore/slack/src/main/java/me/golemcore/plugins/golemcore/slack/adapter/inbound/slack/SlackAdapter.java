@@ -75,13 +75,18 @@ public class SlackAdapter implements ChannelPort {
                 return;
             }
 
-            slackSocketGateway.connect(
-                    config.getAppToken(),
-                    config.getBotToken(),
-                    this::handleInbound,
-                    this::handleAction);
-            running = true;
-            log.info("[Slack] Adapter started");
+            try {
+                slackSocketGateway.connect(
+                        config.getAppToken(),
+                        config.getBotToken(),
+                        this::handleInbound,
+                        this::handleAction);
+                running = true;
+                log.info("[Slack] Adapter started");
+            } catch (RuntimeException ex) {
+                running = false;
+                log.error("[Slack] Failed to start adapter: {}", ex.getMessage(), ex);
+            }
         }
     }
 

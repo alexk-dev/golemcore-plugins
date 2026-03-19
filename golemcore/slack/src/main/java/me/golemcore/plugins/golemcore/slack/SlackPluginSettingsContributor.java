@@ -82,7 +82,8 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
                                 .key("appToken")
                                 .type("secret")
                                 .label("App Token")
-                                .description("Slack app-level token for Socket Mode, starting with xapp-.")
+                                .description(
+                                        "Slack app-level token for Socket Mode, starting with xapp- and granted connections:write.")
                                 .placeholder("xapp-...")
                                 .build(),
                         PluginSettingsField.builder()
@@ -113,7 +114,7 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
                         .key("slack-scopes")
                         .title("Required Slack setup")
                         .variant(config.isConfigured() ? "secondary" : "info")
-                        .text("Enable Socket Mode and Interactivity. Subscribe to app_mention, message.channels, message.groups, message.im, and message.mpim. Required bot scopes: app_mentions:read, channels:history, groups:history, im:history, mpim:history, chat:write.")
+                        .text("Enable Socket Mode and Interactivity. The app token must be an xapp app-level token with connections:write. Subscribe to app_mention, message.channels, message.groups, message.im, and message.mpim. Required bot scopes: app_mentions:read, channels:history, groups:history, im:history, mpim:history, chat:write.")
                         .build()))
                 .actions(List.of(PluginSettingsAction.builder()
                         .actionId(ACTION_RESTART)

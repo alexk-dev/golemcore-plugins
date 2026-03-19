@@ -4,10 +4,12 @@ import com.slack.api.Slack;
 import com.slack.api.bolt.App;
 import com.slack.api.bolt.AppConfig;
 import com.slack.api.bolt.socket_mode.SocketModeApp;
+import com.slack.api.methods.request.apps.connections.AppsConnectionsOpenRequest;
 import com.slack.api.methods.request.auth.AuthTestRequest;
 import com.slack.api.methods.SlackApiException;
 import com.slack.api.methods.request.chat.ChatPostMessageRequest;
 import com.slack.api.methods.request.chat.ChatUpdateRequest;
+import com.slack.api.methods.response.apps.connections.AppsConnectionsOpenResponse;
 import com.slack.api.methods.response.auth.AuthTestResponse;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.chat.ChatUpdateResponse;
@@ -58,6 +60,9 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
         synchronized (lifecycleLock) {
             disconnectInternal();
 
+            resolveBotUserId(botToken);
+            validateSocketModeAppToken(appToken);
+
             AppConfig appConfig = AppConfig.builder()
                     .singleTeamBotToken(botToken)
                     .build();
@@ -78,7 +83,6 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
 
             SocketModeApp modeApp;
             try {
-                resolveBotUserId(botToken);
                 modeApp = new SocketModeApp(appToken, app);
             } catch (IOException ex) {
                 throw new IllegalStateException("Failed to initialize Slack Socket Mode app", ex);
@@ -334,6 +338,22 @@ public class SlackBoltSocketGateway implements SlackSocketGateway {
             return safeTrim(response.getUserId());
         } catch (IOException | SlackApiException ex) {
             throw new IllegalStateException("Failed to resolve Slack bot user id", ex);
+        }
+    }
+
+    private void validateSocketModeAppToken(String appToken) {
+        try {
+            AppsConnectionsOpenResponse response = Slack.getInstance()
+                    .methods(appToken)
+                    .appsConnectionsOpen(AppsConnectionsOpenRequest.builder().build());
+            if (!response.isOk() || safeTrim(response.getUrl()) == null) {
+                String error = firstNonBlank(safeTrim(response.getError()), "unknown_error");
+                throw new IllegalStateException(
+                        "Slack app token is invalid for Socket Mode: " + error
+                                + " (expected an xapp app-level token with connections:write)");
+            }
+        } catch (IOException | SlackApiException ex) {
+            throw new IllegalStateException("Failed to validate Slack app token for Socket Mode", ex);
         }
     }
 

@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <artifactId>golemcore-slack-plugin</artifactId>
     <name>golemcore/slack</name>
     <description>Slack Socket Mode channel plugin with interactive approvals for GolemCore</description>

@@ -28,10 +28,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -138,6 +140,18 @@ class SlackAdapterTest {
                 false));
 
         verify(eventPublisher, never()).publishEvent(any(AgentLoop.InboundMessageEvent.class));
+    }
+
+    @Test
+    void shouldNotReportRunningWhenSocketGatewayConnectFails() {
+        doThrow(new IllegalStateException("Slack app token is invalid for Socket Mode: invalid_auth"))
+                .when(socketGateway)
+                .connect(any(), any(), any(), any());
+
+        adapter.start();
+
+        assertFalse(adapter.isRunning());
+        verify(socketGateway).connect(eq("xapp-test"), eq("xoxb-test"), any(), any());
     }
 
     @Test
