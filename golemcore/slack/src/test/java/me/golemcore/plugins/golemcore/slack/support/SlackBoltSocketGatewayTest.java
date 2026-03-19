@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 class SlackBoltSocketGatewayTest {
 
     @Test
+    @SuppressWarnings("PMD.CloseResource")
     void shouldFailFastWhenAppTokenIsInvalidForSocketMode() throws Exception {
         Slack slack = mock(Slack.class);
         MethodsClient botMethods = mock(MethodsClient.class);
