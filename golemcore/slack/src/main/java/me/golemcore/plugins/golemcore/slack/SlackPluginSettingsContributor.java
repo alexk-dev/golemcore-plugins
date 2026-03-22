@@ -56,8 +56,6 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
         values.put("botToken", "");
         values.put("appToken", "");
         values.put("replyInThread", Boolean.TRUE.equals(config.getReplyInThread()));
-        values.put("allowedUserIds", String.join(", ", config.getAllowedUserIds()));
-        values.put("allowedChannelIds", String.join(", ", config.getAllowedChannelIds()));
 
         return PluginSettingsSection.builder()
                 .title("Slack")
@@ -92,21 +90,6 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
                                 .label("Reply In Threads")
                                 .description(
                                         "Route channel mentions into one session per root thread and answer in that thread.")
-                                .build(),
-                        PluginSettingsField.builder()
-                                .key("allowedUserIds")
-                                .type("text")
-                                .label("Allowed User IDs")
-                                .description("Optional comma-separated Slack user ids. Leave blank to allow any user.")
-                                .placeholder("U01234567, U08999999")
-                                .build(),
-                        PluginSettingsField.builder()
-                                .key("allowedChannelIds")
-                                .type("text")
-                                .label("Allowed Channel IDs")
-                                .description(
-                                        "Optional comma-separated Slack channel ids. Leave blank to allow any channel or DM.")
-                                .placeholder("C01234567, D08999999")
                                 .build()))
                 .values(values)
                 .blocks(List.of(PluginSettingsBlock.builder()
@@ -141,9 +124,6 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
             config.setAppToken(appToken);
         }
 
-        config.setAllowedUserIds(parseCsv(readString(values, "allowedUserIds", "")));
-        config.setAllowedChannelIds(parseCsv(readString(values, "allowedChannelIds", "")));
-
         configService.save(config);
         eventPublisher.publishEvent(new SlackRestartEvent());
         return getSection(sectionKey);
@@ -176,16 +156,5 @@ public class SlackPluginSettingsContributor implements PluginSettingsContributor
     private String readString(Map<String, Object> values, String key, String defaultValue) {
         Object value = values.get(key);
         return value instanceof String text ? text : defaultValue;
-    }
-
-    private List<String> parseCsv(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return List.of();
-        }
-        return java.util.Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .distinct()
-                .toList();
     }
 }

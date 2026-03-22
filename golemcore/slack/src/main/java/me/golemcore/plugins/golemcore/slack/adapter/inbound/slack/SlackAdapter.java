@@ -180,8 +180,7 @@ public class SlackAdapter implements ChannelPort {
 
     @Override
     public boolean isAuthorized(String senderId) {
-        SlackPluginConfig config = configService.getConfig();
-        return config.getAllowedUserIds().isEmpty() || config.getAllowedUserIds().contains(senderId);
+        return true;
     }
 
     @Override
@@ -214,14 +213,6 @@ public class SlackAdapter implements ChannelPort {
         if (envelope == null) {
             return;
         }
-        if (!isAuthorized(envelope.userId())) {
-            log.warn("[Slack] Ignoring message from unauthorized user {}", envelope.userId());
-            return;
-        }
-        if (!isChannelAllowed(envelope.channelId())) {
-            log.warn("[Slack] Ignoring message from unauthorized channel {}", envelope.channelId());
-            return;
-        }
         if (requiresExistingConversation(envelope) && !hasExistingConversation(envelope)) {
             log.debug("[Slack] Ignoring thread reply without active conversation {}", envelope.rootThreadTs());
             return;
@@ -239,15 +230,6 @@ public class SlackAdapter implements ChannelPort {
         if (envelope == null) {
             return;
         }
-        if (!isAuthorized(envelope.userId())) {
-            log.warn("[Slack] Ignoring action from unauthorized user {}", envelope.userId());
-            return;
-        }
-        if (!isChannelAllowed(envelope.channelId())) {
-            log.warn("[Slack] Ignoring action from unauthorized channel {}", envelope.channelId());
-            return;
-        }
-
         String actionId = envelope.actionId();
         if (SlackActionIds.CONFIRM_APPROVE.equals(actionId) || SlackActionIds.CONFIRM_CANCEL.equals(actionId)) {
             eventPublisher.publishEvent(new ConfirmationCallbackEvent(
@@ -264,11 +246,6 @@ public class SlackAdapter implements ChannelPort {
                     envelope.transportChatId(),
                     envelope.messageTs()));
         }
-    }
-
-    private boolean isChannelAllowed(String channelId) {
-        SlackPluginConfig config = configService.getConfig();
-        return config.getAllowedChannelIds().isEmpty() || config.getAllowedChannelIds().contains(channelId);
     }
 
     private Message buildInboundMessage(SlackInboundEnvelope envelope) {
