@@ -3,9 +3,9 @@ version: 1.0.3
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 artifactUrl: "dist/golemcore/slack/1.0.3/golemcore-slack-plugin-1.0.3.jar"
-checksumSha256: "52e4c3dc152573c2d0c9ff15a6f9160db55105f3031958d32fd7e1ff721653da"
-publishedAt: "2026-03-19T20:12:15Z"
-sourceCommit: "a302e942c9dbc3d5e4a9e2d79e5f9fba8e4f260e"
+checksumSha256: "a2c00bfd7f26d3652caaa24e1589a50c41938ae4c7e4f36211f12841fffb8124"
+publishedAt: "2026-03-19T22:36:59Z"
+sourceCommit: "958100577c5a89c80ee0139d56a278db31ede9c1"
 entrypoint: me.golemcore.plugins.golemcore.slack.SlackPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack"
 license: "Apache-2.0"
