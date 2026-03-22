@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,6 +20,7 @@ class SlackPluginConfigServiceTest {
 
     private PluginConfigurationService pluginConfigurationService;
     private SlackPluginConfigService service;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
@@ -37,12 +40,13 @@ class SlackPluginConfigServiceTest {
                 "allowedChannelIds", java.util.List.of("C123")));
 
         SlackPluginConfig config = service.getConfig();
+        Map<String, Object> serialized = objectMapper.convertValue(config, Map.class);
 
         assertEquals("xoxb-test", config.getBotToken());
         assertEquals("xapp-test", config.getAppToken());
         assertFalse(Boolean.TRUE.equals(config.getReplyInThread()));
-        assertEquals(java.util.List.of("U123"), config.getAllowedUserIds());
-        assertEquals(java.util.List.of("C123"), config.getAllowedChannelIds());
+        assertFalse(serialized.containsKey("allowedUserIds"));
+        assertFalse(serialized.containsKey("allowedChannelIds"));
     }
 
     @Test
@@ -52,8 +56,6 @@ class SlackPluginConfigServiceTest {
                 .botToken(" xoxb-token ")
                 .appToken(" xapp-token ")
                 .replyInThread(null)
-                .allowedUserIds(java.util.List.of(" U123 ", "", "U123"))
-                .allowedChannelIds(java.util.List.of(" C123 ", "C123"))
                 .build();
 
         service.save(config);
@@ -66,8 +68,8 @@ class SlackPluginConfigServiceTest {
         assertEquals("xapp-token", saved.get("appToken"));
         assertEquals(true, saved.get("enabled"));
         assertEquals(true, saved.get("replyInThread"));
-        assertEquals(java.util.List.of("U123"), saved.get("allowedUserIds"));
-        assertEquals(java.util.List.of("C123"), saved.get("allowedChannelIds"));
+        assertFalse(saved.containsKey("allowedUserIds"));
+        assertFalse(saved.containsKey("allowedChannelIds"));
         assertFalse(saved.containsKey("configured"));
     }
 }

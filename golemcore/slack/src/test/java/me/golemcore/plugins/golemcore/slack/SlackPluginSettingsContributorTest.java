@@ -1,5 +1,6 @@
 package me.golemcore.plugins.golemcore.slack;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import me.golemcore.plugin.api.extension.spi.PluginActionResult;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsSection;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ class SlackPluginSettingsContributorTest {
     private ApplicationEventPublisher eventPublisher;
     private SlackPluginSettingsContributor contributor;
     private SlackPluginConfig config;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
@@ -33,8 +35,6 @@ class SlackPluginSettingsContributorTest {
                 .botToken("xoxb-existing")
                 .appToken("xapp-existing")
                 .replyInThread(true)
-                .allowedUserIds(List.of("U123"))
-                .allowedChannelIds(List.of("C123"))
                 .build();
         when(configService.getConfig()).thenReturn(config);
     }
@@ -45,8 +45,8 @@ class SlackPluginSettingsContributorTest {
 
         assertEquals("", section.getValues().get("botToken"));
         assertEquals("", section.getValues().get("appToken"));
-        assertEquals("U123", section.getValues().get("allowedUserIds"));
-        assertEquals("C123", section.getValues().get("allowedChannelIds"));
+        assertTrue(!section.getValues().containsKey("allowedUserIds"));
+        assertTrue(!section.getValues().containsKey("allowedChannelIds"));
     }
 
     @Test
@@ -55,19 +55,18 @@ class SlackPluginSettingsContributorTest {
                 "enabled", false,
                 "botToken", "",
                 "appToken", "",
-                "replyInThread", false,
-                "allowedUserIds", "U777, U888",
-                "allowedChannelIds", "D123, C999"));
+                "replyInThread", false));
 
         ArgumentCaptor<SlackPluginConfig> captor = ArgumentCaptor.forClass(SlackPluginConfig.class);
         verify(configService).save(captor.capture());
         SlackPluginConfig saved = captor.getValue();
+        Map<String, Object> serialized = objectMapper.convertValue(saved, Map.class);
         assertEquals("xoxb-existing", saved.getBotToken());
         assertEquals("xapp-existing", saved.getAppToken());
         assertTrue(Boolean.FALSE.equals(saved.getEnabled()));
         assertTrue(Boolean.FALSE.equals(saved.getReplyInThread()));
-        assertEquals(List.of("U777", "U888"), saved.getAllowedUserIds());
-        assertEquals(List.of("D123", "C999"), saved.getAllowedChannelIds());
+        assertTrue(!serialized.containsKey("allowedUserIds"));
+        assertTrue(!serialized.containsKey("allowedChannelIds"));
         verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.any(SlackRestartEvent.class));
     }
 

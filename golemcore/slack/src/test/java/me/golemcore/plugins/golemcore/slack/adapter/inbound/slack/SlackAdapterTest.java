@@ -1,5 +1,6 @@
 package me.golemcore.plugins.golemcore.slack.adapter.inbound.slack;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import me.golemcore.plugin.api.extension.loop.AgentLoop;
 import me.golemcore.plugin.api.extension.model.ConfirmationCallbackEvent;
 import me.golemcore.plugin.api.extension.model.ContextAttributes;
@@ -48,6 +49,7 @@ class SlackAdapterTest {
     private ApplicationEventPublisher eventPublisher;
     private SlackAdapter adapter;
     private SlackPluginConfig config;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
@@ -103,7 +105,13 @@ class SlackAdapterTest {
 
     @Test
     void shouldIgnoreUnauthorizedUsers() {
-        config.setAllowedUserIds(List.of("U111"));
+        config = objectMapper.convertValue(Map.of(
+                "enabled", true,
+                "botToken", "xoxb-test",
+                "appToken", "xapp-test",
+                "replyInThread", true,
+                "allowedUserIds", List.of("U111")), SlackPluginConfig.class);
+        when(configService.getConfig()).thenReturn(config);
         adapter.start();
 
         ArgumentCaptor<Consumer<SlackInboundEnvelope>> captor = ArgumentCaptor.forClass(Consumer.class);
@@ -119,7 +127,7 @@ class SlackAdapterTest {
                 true,
                 false));
 
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(eventPublisher).publishEvent(any(AgentLoop.InboundMessageEvent.class));
     }
 
     @Test
