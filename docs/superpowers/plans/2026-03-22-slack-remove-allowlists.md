@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove Slack user/channel allowlists from config, UI, and runtime filtering while keeping legacy stored keys harmless.
+**Goal:** Remove Slack user/channel allowlists from config, UI, and runtime filtering while keeping legacy stored keys harmless, and publish the fix as Slack plugin version `1.0.4`.
 
 **Architecture:** Keep the persisted-config compatibility boundary in `SlackPluginConfig` via unknown-field tolerance, simplify the settings surface, and remove runtime allowlist checks from `SlackAdapter`. The change is intentionally narrow and does not alter mention or thread routing semantics.
 
@@ -64,7 +64,23 @@ Delete the inbound/action filter methods in `SlackAdapter` and keep only the thr
 
 Run: `mvn -B -ntp -f pom.xml -pl :golemcore-slack-plugin -Dtest=SlackPluginConfigServiceTest,SlackPluginSettingsContributorTest,SlackAdapterTest test`
 
-### Task 3: Verify And Prepare PR
+### Task 3: Bump Slack Release Metadata To 1.0.4
+
+**Files:**
+- Modify: `golemcore/slack/pom.xml`
+- Modify: `golemcore/slack/plugin.yaml`
+- Modify: `registry/golemcore/slack/index.yaml`
+- Create: `registry/golemcore/slack/versions/1.0.4.yaml`
+
+- [ ] **Step 1: Run the repository release helper with an explicit Slack version**
+
+Run: `python3 scripts/plugins_repo.py release --plugin golemcore/slack --version-override 1.0.4`
+
+- [ ] **Step 2: Verify the generated metadata references 1.0.4**
+
+Check that the Slack module version, plugin manifest version, registry latest pointer, and new registry version file are all aligned on `1.0.4`.
+
+### Task 4: Verify And Prepare PR
 
 **Files:**
 - Verify only

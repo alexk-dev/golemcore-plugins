@@ -2,7 +2,7 @@
 
 ## Goal
 
-Remove `allowedUserIds` and `allowedChannelIds` from the Slack plugin's public configuration and runtime behavior so Slack message intake depends only on Slack event type, bot installation, and existing thread/session rules.
+Remove `allowedUserIds` and `allowedChannelIds` from the Slack plugin's public configuration and runtime behavior so Slack message intake depends only on Slack event type, bot installation, and existing thread/session rules, and ship that change as Slack plugin version `1.0.4`.
 
 ## Scope
 
@@ -10,6 +10,7 @@ Remove `allowedUserIds` and `allowedChannelIds` from the Slack plugin's public c
 - Remove both fields from the Slack settings UI and save flow.
 - Remove inbound user/channel filtering from the Slack adapter.
 - Continue tolerating legacy persisted config keys silently.
+- Publish the change as patch release `1.0.4` with refreshed registry metadata and checksum.
 
 ## Non-Goals
 
@@ -32,3 +33,4 @@ Inbound Slack handling will no longer call allowlist-based user/channel filters.
 - Update config-service tests to verify legacy allowlist keys are ignored on read and are not persisted on save.
 - Update settings-contributor tests to verify the section no longer exposes allowlist fields and save keeps only supported values.
 - Update adapter tests to verify inbound messages are not dropped because of prior allowlist configuration.
+- Verify the release metadata points to `1.0.4` and matches the locally built artifact checksum.
