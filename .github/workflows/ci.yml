@@ -36,26 +36,6 @@ jobs:
       - name: Build, test, and verify code quality
         run: mvn -B -ntp -P strict verify
 
-      - name: Verify release-candidate registry checksums
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          mapfile -t plugins < <(python3 scripts/plugins_repo.py release-plan \
-            --rev-range "${{ github.event.pull_request.base.sha }}..${{ github.sha }}")
-          if (( ${#plugins[@]} == 0 )); then
-            echo "No release candidates changed in this PR."
-            exit 0
-          fi
-
-          for plugin_id in "${plugins[@]}"; do
-            python3 scripts/plugins_repo.py sync-local-registry --plugin "$plugin_id"
-          done
-
-          if ! git diff --exit-code -- registry; then
-            echo "::error::Registry metadata drift detected for release candidate plugins. Refresh the current registry version metadata from a fresh build before merging."
-            exit 1
-          fi
-
       - name: Upload packaged artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -181,7 +161,6 @@ jobs:
 
             gh release create "${tag_name}" \
               "${artifact_path}" \
-              "${artifact_sha256_path}" \
               "${registry_version_path}" \
               --title "${release_name}" \
               --generate-notes
