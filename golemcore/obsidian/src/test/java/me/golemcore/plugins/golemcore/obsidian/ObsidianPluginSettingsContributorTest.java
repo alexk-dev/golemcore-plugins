@@ -1,11 +1,16 @@
 package me.golemcore.plugins.golemcore.obsidian;
 
+import me.golemcore.plugin.api.extension.spi.PluginActionResult;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsSection;
+import me.golemcore.plugins.golemcore.obsidian.support.ObsidianApiClient;
+import me.golemcore.plugins.golemcore.obsidian.support.ObsidianTransportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,13 +23,15 @@ import static org.mockito.Mockito.when;
 class ObsidianPluginSettingsContributorTest {
 
     private ObsidianPluginConfigService configService;
+    private ObsidianApiClient apiClient;
     private ObsidianPluginSettingsContributor contributor;
     private ObsidianPluginConfig config;
 
     @BeforeEach
     void setUp() {
         configService = mock(ObsidianPluginConfigService.class);
-        contributor = new ObsidianPluginSettingsContributor(configService);
+        apiClient = mock(ObsidianApiClient.class);
+        contributor = new ObsidianPluginSettingsContributor(configService, apiClient);
         config = ObsidianPluginConfig.builder().build();
         config.normalize();
         when(configService.getConfig()).thenReturn(config);
@@ -45,6 +52,9 @@ class ObsidianPluginSettingsContributorTest {
         assertFalse((Boolean) section.getValues().get("allowDelete"));
         assertFalse((Boolean) section.getValues().get("allowMove"));
         assertFalse((Boolean) section.getValues().get("allowRename"));
+        assertEquals(1, section.getActions().size());
+        assertEquals("test-connection", section.getActions().getFirst().getActionId());
+        assertEquals("Test Connection", section.getActions().getFirst().getLabel());
     }
 
     @Test
@@ -98,5 +108,38 @@ class ObsidianPluginSettingsContributorTest {
         assertFalse((Boolean) section.getValues().get("allowDelete"));
         assertTrue((Boolean) section.getValues().get("allowMove"));
         assertFalse((Boolean) section.getValues().get("allowRename"));
+    }
+
+    @Test
+    void shouldReturnOkWhenConnectionTestSucceeds() {
+        config.setApiKey("secret");
+        when(apiClient.listDirectory("")).thenReturn(List.of("Inbox.md", "Projects/"));
+
+        PluginActionResult result = contributor.executeAction("main", "test-connection", Map.of());
+
+        assertEquals("ok", result.getStatus());
+        assertEquals("Connected to Obsidian. Vault root returned 2 item(s).", result.getMessage());
+        verify(apiClient).listDirectory("");
+    }
+
+    @Test
+    void shouldReturnErrorWhenApiKeyIsMissing() {
+        PluginActionResult result = contributor.executeAction("main", "test-connection", Map.of());
+
+        assertEquals("error", result.getStatus());
+        assertEquals("Obsidian API key is not configured.", result.getMessage());
+    }
+
+    @Test
+    void shouldReturnErrorWhenConnectionTestFails() {
+        config.setApiKey("secret");
+        when(apiClient.listDirectory("")).thenThrow(new ObsidianTransportException(
+                "Obsidian transport failed: timeout",
+                new IOException("timeout")));
+
+        PluginActionResult result = contributor.executeAction("main", "test-connection", Map.of());
+
+        assertEquals("error", result.getStatus());
+        assertEquals("Connection failed: Obsidian transport failed: timeout", result.getMessage());
     }
 }

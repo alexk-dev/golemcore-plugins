@@ -2,10 +2,14 @@ package me.golemcore.plugins.golemcore.obsidian;
 
 import lombok.RequiredArgsConstructor;
 import me.golemcore.plugin.api.extension.spi.PluginActionResult;
+import me.golemcore.plugin.api.extension.spi.PluginSettingsAction;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsCatalogItem;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsContributor;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsField;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsSection;
+import me.golemcore.plugins.golemcore.obsidian.support.ObsidianApiClient;
+import me.golemcore.plugins.golemcore.obsidian.support.ObsidianApiException;
+import me.golemcore.plugins.golemcore.obsidian.support.ObsidianTransportException;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -17,8 +21,10 @@ import java.util.Map;
 public class ObsidianPluginSettingsContributor implements PluginSettingsContributor {
 
     private static final String SECTION_KEY = "main";
+    private static final String ACTION_TEST_CONNECTION = "test-connection";
 
     private final ObsidianPluginConfigService configService;
+    private final ObsidianApiClient apiClient;
 
     @Override
     public String getPluginId() {
@@ -138,6 +144,11 @@ public class ObsidianPluginSettingsContributor implements PluginSettingsContribu
                                 .description("Permit tools to rename notes or files.")
                                 .build()))
                 .values(values)
+                .actions(List.of(PluginSettingsAction.builder()
+                        .actionId(ACTION_TEST_CONNECTION)
+                        .label("Test Connection")
+                        .variant("secondary")
+                        .build()))
                 .build();
     }
 
@@ -167,7 +178,33 @@ public class ObsidianPluginSettingsContributor implements PluginSettingsContribu
     @Override
     public PluginActionResult executeAction(String sectionKey, String actionId, Map<String, Object> payload) {
         requireSection(sectionKey);
-        throw new IllegalArgumentException("Unknown Obsidian action: " + actionId);
+        if (!ACTION_TEST_CONNECTION.equals(actionId)) {
+            throw new IllegalArgumentException("Unknown Obsidian action: " + actionId);
+        }
+        return testConnection();
+    }
+
+    private PluginActionResult testConnection() {
+        ObsidianPluginConfig config = configService.getConfig();
+        if (!hasText(config.getApiKey())) {
+            return PluginActionResult.builder()
+                    .status("error")
+                    .message("Obsidian API key is not configured.")
+                    .build();
+        }
+        try {
+            List<String> entries = apiClient.listDirectory("");
+            return PluginActionResult.builder()
+                    .status("ok")
+                    .message("Connected to Obsidian. Vault root returned " + entries.size() + " item(s).")
+                    .build();
+        } catch (IllegalArgumentException | IllegalStateException | ObsidianApiException
+                | ObsidianTransportException ex) {
+            return PluginActionResult.builder()
+                    .status("error")
+                    .message("Connection failed: " + ex.getMessage())
+                    .build();
+        }
     }
 
     private void requireSection(String sectionKey) {
@@ -202,5 +239,9 @@ public class ObsidianPluginSettingsContributor implements PluginSettingsContribu
             return text;
         }
         return defaultValue;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }
