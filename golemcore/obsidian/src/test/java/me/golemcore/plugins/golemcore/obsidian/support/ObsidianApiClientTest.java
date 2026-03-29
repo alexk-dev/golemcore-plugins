@@ -109,6 +109,37 @@ class ObsidianApiClientTest {
     }
 
     @Test
+    void shouldFailFastWhenSuccessfulReadNoteResponseIsMissingContent() {
+        client.enqueueResponse(200, """
+                {
+                  "path": "Inbox Notes.md",
+                  "stat": {
+                    "ctime": 1,
+                    "mtime": 2,
+                    "size": 11
+                  }
+                }
+                """);
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.readNote("Inbox Notes.md"));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("content"));
+    }
+
+    @Test
+    void shouldFailFastWhenSuccessfulReadNoteResponseIsMalformed() {
+        client.enqueueResponse(200, "{not-json");
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.readNote("Inbox Notes.md"));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("JSON"));
+    }
+
+    @Test
     void shouldMapUnauthorizedResponsesToAuthFailures() {
         client.enqueueResponse(401, "{\"message\":\"unauthorized\"}");
 
@@ -166,6 +197,34 @@ class ObsidianApiClientTest {
     }
 
     @Test
+    void shouldFailFastWhenSuccessfulSearchResponseUsesMissingFilename() {
+        client.enqueueResponse(200, """
+                [
+                  {
+                    "path": "Inbox.md",
+                    "score": 0.98,
+                    "matches": [
+                      {
+                        "context": "Daily review notes",
+                        "match": {
+                          "start": 6,
+                          "end": 12,
+                          "source": "content"
+                        }
+                      }
+                    ]
+                  }
+                ]
+                """);
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.simpleSearch("daily review", 42));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("filename"));
+    }
+
+    @Test
     void shouldFailFastWhenSuccessfulListResponseHasWrongShape() {
         client.enqueueResponse(200, "{\"files\":null}");
 
@@ -179,6 +238,17 @@ class ObsidianApiClientTest {
     @Test
     void shouldFailFastWhenSuccessfulSearchResponseHasWrongShape() {
         client.enqueueResponse(200, "{\"results\":[]}");
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.simpleSearch("daily review", 42));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("array"));
+    }
+
+    @Test
+    void shouldFailFastWhenSuccessfulSearchResponseIsBlank() {
+        client.enqueueResponse(200, "");
 
         ObsidianApiException exception = assertThrows(ObsidianApiException.class,
                 () -> client.simpleSearch("daily review", 42));

@@ -93,12 +93,15 @@ public class ObsidianApiClient {
             }
             try {
                 JsonNode root = objectMapper.readTree(responseBody);
-                if (root.hasNonNull("content")) {
-                    return root.path("content").asText("");
+                JsonNode contentNode = root.get("content");
+                if (contentNode == null || contentNode.isNull() || !contentNode.isTextual()) {
+                    throw new ObsidianApiException(response.code(),
+                            "Invalid note response: expected textual content");
                 }
-                return responseBody;
+                return contentNode.asText("");
             } catch (JsonProcessingException ex) {
-                return responseBody;
+                throw new ObsidianApiException(response.code(),
+                        "Invalid note response: expected JSON with content");
             }
         }
     }
@@ -147,16 +150,17 @@ public class ObsidianApiClient {
         try (Response response = openResponse(request)) {
             String responseBody = readResponseBody(response);
             ensureSuccessful(response, responseBody);
-            if (!hasText(responseBody)) {
-                return List.of();
-            }
             try {
+                if (!hasText(responseBody)) {
+                    throw new ObsidianApiException(response.code(),
+                            "Invalid search response: expected top-level array");
+                }
                 JsonNode root = objectMapper.readTree(responseBody);
                 if (!root.isArray()) {
                     throw new ObsidianApiException(response.code(),
                             "Invalid search response: expected top-level array");
                 }
-                return parseSearchResults(root);
+                return parseSearchResults(root, response.code());
             } catch (JsonProcessingException ex) {
                 throw new ObsidianApiException(response.code(),
                         "Invalid JSON response: " + firstText(ex.getOriginalMessage(), "Unexpected response"));
@@ -308,33 +312,45 @@ public class ObsidianApiClient {
         return responseBody.trim();
     }
 
-    private List<ObsidianSearchResult> parseSearchResults(JsonNode arrayNode) {
+    private List<ObsidianSearchResult> parseSearchResults(JsonNode arrayNode, int statusCode) {
         List<ObsidianSearchResult> results = new ArrayList<>(arrayNode.size());
         for (JsonNode resultNode : arrayNode) {
-            String filename = firstText(resultNode.path("filename").asText(null),
-                    resultNode.path("path").asText(null),
-                    resultNode.path("file").asText(null),
-                    resultNode.path("title").asText(null),
-                    "");
+            JsonNode filenameNode = resultNode.get("filename");
+            if (filenameNode == null || !filenameNode.isTextual() || !hasText(filenameNode.asText())) {
+                throw new ObsidianApiException(statusCode, "Invalid search result: missing filename");
+            }
             double score = resultNode.path("score").isNumber() ? resultNode.path("score").asDouble() : 0.0d;
-            results.add(new ObsidianSearchResult(filename, score, parseMatches(resultNode.path("matches"))));
+            JsonNode matchesNode = resultNode.get("matches");
+            if (matchesNode == null || !matchesNode.isArray()) {
+                throw new ObsidianApiException(statusCode, "Invalid search result: expected matches array");
+            }
+            results.add(new ObsidianSearchResult(filenameNode.asText(), score, parseMatches(matchesNode, statusCode)));
         }
         return List.copyOf(results);
     }
 
-    private List<ObsidianSearchResult.Match> parseMatches(JsonNode matchesNode) {
-        if (!matchesNode.isArray()) {
-            return List.of();
-        }
+    private List<ObsidianSearchResult.Match> parseMatches(JsonNode matchesNode, int statusCode) {
         List<ObsidianSearchResult.Match> matches = new ArrayList<>(matchesNode.size());
         for (JsonNode matchNode : matchesNode) {
-            JsonNode spanNode = matchNode.path("match");
+            JsonNode contextNode = matchNode.get("context");
+            if (contextNode == null || !contextNode.isTextual()) {
+                throw new ObsidianApiException(statusCode, "Invalid search match: missing context");
+            }
+            JsonNode spanNode = matchNode.get("match");
+            if (spanNode == null || !spanNode.isObject()) {
+                throw new ObsidianApiException(statusCode, "Invalid search match: expected match object");
+            }
+            JsonNode startNode = spanNode.get("start");
+            JsonNode endNode = spanNode.get("end");
+            JsonNode sourceNode = spanNode.get("source");
+            if (startNode == null || !startNode.isNumber()
+                    || endNode == null || !endNode.isNumber()
+                    || sourceNode == null || !sourceNode.isTextual()) {
+                throw new ObsidianApiException(statusCode, "Invalid search match: incomplete span");
+            }
             matches.add(new ObsidianSearchResult.Match(
-                    matchNode.path("context").asText(""),
-                    new ObsidianSearchResult.MatchSpan(
-                            spanNode.path("start").isNumber() ? spanNode.path("start").asInt() : null,
-                            spanNode.path("end").isNumber() ? spanNode.path("end").asInt() : null,
-                            spanNode.path("source").asText(""))));
+                    contextNode.asText(),
+                    new ObsidianSearchResult.MatchSpan(startNode.asInt(), endNode.asInt(), sourceNode.asText())));
         }
         return List.copyOf(matches);
     }
