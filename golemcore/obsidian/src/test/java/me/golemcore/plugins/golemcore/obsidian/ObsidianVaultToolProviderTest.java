@@ -131,6 +131,18 @@ class ObsidianVaultToolProviderTest {
     }
 
     @Test
+    void shouldRejectStringContextLength() {
+        ToolResult result = provider.execute(Map.of(
+                "operation", "search_notes",
+                "query", "daily review",
+                "context_length", "42")).join();
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("context_length"));
+    }
+
+    @Test
     void shouldDispatchListDirectoryWithoutPath() {
         when(service.listDirectory(null))
                 .thenReturn(ToolResult.success("listed"));

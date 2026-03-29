@@ -144,25 +144,6 @@ public class ObsidianVaultToolProvider implements ToolProvider {
         if (value instanceof Integer integerValue) {
             return integerValue;
         }
-        if (value instanceof Long longValue) {
-            if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) {
-                return longValue.intValue();
-            }
-            return null;
-        }
-        if (value instanceof Short shortValue) {
-            return shortValue.intValue();
-        }
-        if (value instanceof Byte byteValue) {
-            return byteValue.intValue();
-        }
-        if (value instanceof String stringValue && !stringValue.isBlank()) {
-            try {
-                return Integer.parseInt(stringValue.trim());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
         return null;
     }
 }
