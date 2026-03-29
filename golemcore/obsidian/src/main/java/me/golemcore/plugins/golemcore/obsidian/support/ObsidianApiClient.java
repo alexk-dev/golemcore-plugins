@@ -345,13 +345,15 @@ public class ObsidianApiClient {
             JsonNode endNode = spanNode.get("end");
             JsonNode sourceNode = spanNode.get("source");
             if (startNode == null || !startNode.isNumber()
-                    || endNode == null || !endNode.isNumber()
-                    || sourceNode == null || !sourceNode.isTextual()) {
+                    || endNode == null || !endNode.isNumber()) {
                 throw new ObsidianApiException(statusCode, "Invalid search match: incomplete span");
             }
+            String source = sourceNode != null && sourceNode.isTextual() && hasText(sourceNode.asText())
+                    ? sourceNode.asText()
+                    : null;
             matches.add(new ObsidianSearchResult.Match(
                     contextNode.asText(),
-                    new ObsidianSearchResult.MatchSpan(startNode.asInt(), endNode.asInt(), sourceNode.asText())));
+                    new ObsidianSearchResult.MatchSpan(startNode.asInt(), endNode.asInt(), source)));
         }
         return List.copyOf(matches);
     }

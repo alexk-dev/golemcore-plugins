@@ -140,6 +140,17 @@ class ObsidianApiClientTest {
     }
 
     @Test
+    void shouldFailFastWhenSuccessfulReadNoteResponseIsBlank() {
+        client.enqueueResponse(200, "");
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.readNote("Inbox Notes.md"));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("content"));
+    }
+
+    @Test
     void shouldMapUnauthorizedResponsesToAuthFailures() {
         client.enqueueResponse(401, "{\"message\":\"unauthorized\"}");
 
@@ -194,6 +205,36 @@ class ObsidianApiClientTest {
         assertEquals(6, results.getFirst().getMatches().getFirst().getMatch().getStart());
         assertEquals(12, results.getFirst().getMatches().getFirst().getMatch().getEnd());
         assertEquals("content", results.getFirst().getMatches().getFirst().getMatch().getSource());
+    }
+
+    @Test
+    void shouldAllowSearchMatchesWithoutOptionalSource() throws Exception {
+        client.enqueueResponse(200, """
+                [
+                  {
+                    "filename": "Inbox.md",
+                    "score": 0.91,
+                    "matches": [
+                      {
+                        "context": "Daily review notes",
+                        "match": {
+                          "start": 6,
+                          "end": 12
+                        }
+                      }
+                    ]
+                  }
+                ]
+                """);
+
+        List<ObsidianSearchResult> results = client.simpleSearch("daily review", 42);
+
+        assertEquals("Inbox.md", results.getFirst().getFilename());
+        assertEquals(0.91, results.getFirst().getScore());
+        assertEquals("Daily review notes", results.getFirst().getMatches().getFirst().getContext());
+        assertEquals(6, results.getFirst().getMatches().getFirst().getMatch().getStart());
+        assertEquals(12, results.getFirst().getMatches().getFirst().getMatch().getEnd());
+        assertEquals(null, results.getFirst().getMatches().getFirst().getMatch().getSource());
     }
 
     @Test
