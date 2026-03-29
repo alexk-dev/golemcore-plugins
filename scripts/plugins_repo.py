@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import re
 import subprocess
 import sys
@@ -403,7 +402,6 @@ def render_registry_index(spec: PluginSpec, versions: list[str]) -> str:
 def render_registry_version(
     spec: PluginSpec,
     version: str,
-    checksum: str,
     published_at: str,
     source_commit: str,
     artifact_url: str | None = None,
@@ -415,7 +413,6 @@ def render_registry_version(
         f"pluginApiVersion: {spec.plugin_api_version}",
         f"engineVersion: {yaml_quote(spec.engine_version)}",
         f"artifactUrl: {yaml_quote(resolved_artifact_url)}",
-        f"checksumSha256: {yaml_quote(checksum)}",
         f"publishedAt: {yaml_quote(published_at)}",
         f"sourceCommit: {yaml_quote(source_commit)}",
         f"entrypoint: {spec.entrypoint}",
@@ -530,51 +527,7 @@ def emit_release_plan(rev_range: str) -> None:
         print(spec.plugin_id)
 
 
-def sync_local_registry(plugin_id: str | None) -> None:
-    plugins = discover_plugins()
-    if not plugins:
-        raise SystemExit("No plugins discovered")
-
-    if plugin_id is not None:
-        selected = [plugins.get(plugin_id)]
-        if selected[0] is None:
-            raise SystemExit(f"Unknown plugin: {plugin_id}")
-    else:
-        selected = list(plugins.values())
-
-    head_commit = run_command("git", "rev-parse", "HEAD")
-    now_utc = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    updated = 0
-    for spec in selected:
-        assert spec is not None
-        version_path = spec.current_registry_version_path
-        if not version_path.exists():
-            raise SystemExit(f"Missing registry version file for current version: {version_path}")
-
-        artifact_path = ROOT / spec.dist_artifact_relative_path(spec.version)
-        if not artifact_path.exists():
-            raise SystemExit(f"Expected artifact was not built: {artifact_path}")
-
-        version_data = parse_simple_yaml(version_path)
-        published_at = str(version_data.get("publishedAt") or now_utc)
-        source_commit = str(version_data.get("sourceCommit") or head_commit)
-        checksum = sha256(artifact_path)
-        content = render_registry_version(
-            spec,
-            spec.version,
-            checksum,
-            published_at,
-            source_commit,
-            artifact_url=spec.dist_artifact_relative_path(spec.version).as_posix(),
-        )
-        write_text(version_path, content)
-        updated += 1
-        print(f"Synced {spec.plugin_id} -> {version_path.relative_to(ROOT)}")
-
-    print(f"Synchronized {updated} registry version file(s)")
-
-
-def validate_repo(check_local_artifacts: bool = False) -> None:
+def validate_repo() -> None:
     plugins = discover_plugins()
     if not plugins:
         raise SystemExit("No plugins discovered")
@@ -711,22 +664,6 @@ def validate_repo(check_local_artifacts: bool = False) -> None:
                 errors.append(f"{current_version_path}: engineVersion must match plugin.yaml")
             if str(version_data["entrypoint"]) != spec.entrypoint:
                 errors.append(f"{current_version_path}: entrypoint must match plugin.yaml")
-            if check_local_artifacts:
-                artifact_path = ROOT / spec.dist_artifact_relative_path(spec.version)
-                if not artifact_path.exists():
-                    errors.append(f"{artifact_path}: built artifact is missing; run mvn verify before checksum validation")
-                else:
-                    expected_checksum = str(version_data.get("checksumSha256", "")).strip()
-                    if not expected_checksum:
-                        errors.append(f"{current_version_path}: checksumSha256 must be present")
-                    else:
-                        actual_checksum = sha256(artifact_path)
-                        if expected_checksum.lower() != actual_checksum.lower():
-                            errors.append(
-                                f"{current_version_path}: checksumSha256 does not match "
-                                f"{artifact_path.relative_to(ROOT).as_posix()} "
-                                f"(expected {expected_checksum}, actual {actual_checksum})"
-                            )
 
         for version in versions:
             version_file = spec.versions_dir / f"{version}.yaml"
@@ -773,14 +710,6 @@ def infer_auto_bump(spec: PluginSpec) -> str:
             "Use an explicit bump or add a release-impacting change."
         )
     raise SystemExit(f"Unable to infer SemVer bump for {spec.plugin_id} from commits since {latest_tag}")
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def write_github_output(path: Path | None, values: dict[str, str]) -> None:
@@ -864,15 +793,11 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
     if not artifact_path.exists():
         raise SystemExit(f"Expected artifact was not built: {artifact_path}")
 
-    checksum = sha256(artifact_path)
-    checksum_path = artifact_path.with_suffix(".jar.sha256")
-    checksum_path.write_text(f"{checksum}  {artifact_path.name}\n", encoding="utf-8")
-
     version_path = next_spec.versions_dir / f"{new_version}.yaml"
     if new_version != spec.version:
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         source_commit = run_command("git", "rev-parse", "HEAD")
-        write_text(version_path, render_registry_version(next_spec, new_version, checksum, published_at, source_commit))
+        write_text(version_path, render_registry_version(next_spec, new_version, published_at, source_commit))
 
     write_github_output(
         github_output,
@@ -886,10 +811,8 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
             "plugin_yaml_path": next_spec.plugin_yaml_path.relative_to(ROOT).as_posix(),
             "pom_path": next_spec.pom_path.relative_to(ROOT).as_posix(),
             "artifact_path": artifact_path.relative_to(ROOT).as_posix(),
-            "artifact_sha256_path": checksum_path.relative_to(ROOT).as_posix(),
             "registry_index_path": next_spec.registry_index_path.relative_to(ROOT).as_posix(),
             "registry_version_path": version_path.relative_to(ROOT).as_posix(),
-            "checksum_sha256": checksum,
             "tag_name": next_spec.release_tag(new_version),
             "release_name": f"{next_spec.plugin_id} v{new_version}",
         },
@@ -904,12 +827,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate and release the golemcore-plugins repository")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    validate_parser = subparsers.add_parser("validate", help="Validate plugin manifests, module versions, and registry metadata")
-    validate_parser.add_argument(
-        "--check-local-artifacts",
-        action="store_true",
-        help="Also verify checksumSha256 against locally built dist artifacts for the current plugin versions.",
-    )
+    subparsers.add_parser("validate", help="Validate plugin manifests, module versions, and registry metadata")
     lint_parser = subparsers.add_parser("lint-commits", help="Validate conventional commit subjects in a Git revision range")
     lint_parser.add_argument("--rev-range", required=True, help="Git revision range, e.g. origin/main..HEAD")
     settings_parser = subparsers.add_parser("repo-settings", help="Print repository-level CI settings")
@@ -936,11 +854,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional GitHub Actions output file.",
     )
-    sync_parser = subparsers.add_parser(
-        "sync-local-registry",
-        help="Refresh current registry version metadata from locally built dist artifacts.",
-    )
-    sync_parser.add_argument("--plugin", help="Canonical plugin id, e.g. golemcore/browser")
     release_plan_parser = subparsers.add_parser(
         "release-plan",
         help="Print plugin ids that should be released for a given Git revision range.",
@@ -952,7 +865,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.command == "validate":
-        validate_repo(check_local_artifacts=args.check_local_artifacts)
+        validate_repo()
         print("Repository validation passed")
         return 0
     if args.command == "lint-commits":
@@ -963,9 +876,6 @@ def main() -> int:
         return 0
     if args.command == "release":
         run_release(args.plugin, args.bump, args.version_override, args.github_output)
-        return 0
-    if args.command == "sync-local-registry":
-        sync_local_registry(args.plugin)
         return 0
     if args.command == "release-plan":
         emit_release_plan(args.rev_range)

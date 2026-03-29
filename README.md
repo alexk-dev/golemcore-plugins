@@ -90,28 +90,6 @@ Use the helper script to validate manifests, module versions, and registry metad
 python3 scripts/plugins_repo.py validate
 ```
 
-If you want the script to also compare current registry checksums against locally built artifacts, run:
-
-```bash
-python3 scripts/plugins_repo.py validate --check-local-artifacts
-```
-
-### Local registry refresh for unreleased development builds
-
-For local marketplace development only, refresh current registry metadata from locally built artifacts:
-
-```bash
-python3 scripts/plugins_repo.py sync-local-registry
-```
-
-You can also scope the refresh to one plugin:
-
-```bash
-python3 scripts/plugins_repo.py sync-local-registry --plugin golemcore/browser
-```
-
-Do not use local registry sync to rewrite metadata for an already released version in a PR.
-
 ## Release Model
 
 Normal plugin releases are produced from the default branch.

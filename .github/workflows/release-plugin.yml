@@ -125,5 +125,4 @@ jobs:
           generate_release_notes: true
           files: |
             ${{ steps.release.outputs.artifact_path }}
-            ${{ steps.release.outputs.artifact_sha256_path }}
             ${{ steps.release.outputs.registry_version_path }}

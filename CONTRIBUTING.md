@@ -112,21 +112,11 @@ Normal plugin releases are produced automatically after a merge to the default b
 2. derives the SemVer bump from conventional commits since the last plugin tag
 3. bumps the plugin version
 4. packages the plugin from the repository state on the default branch
-5. writes fresh `registry/` metadata, including checksum and published timestamp, from that built artifact
+5. writes fresh `registry/` metadata, including artifact URL and published timestamp, from that built artifact
 6. publishes the jar to GitHub Packages
-7. commits release metadata, tags the release, and publishes the jar plus checksum file to GitHub Releases
+7. commits release metadata, tags the release, and publishes the jar plus registry metadata to GitHub Releases
 
-The manual GitHub Actions workflow `Release Plugin` exists for backfills or exceptional releases from the default branch. It follows the same packaging and checksum rules as the automatic release flow.
-
-For local marketplace development after rebuilding plugin jars without a version bump, refresh registry metadata with:
-
-- `python3 scripts/plugins_repo.py sync-local-registry`
-
-Then verify the result with:
-
-- `python3 scripts/plugins_repo.py validate --check-local-artifacts`
-
-This local registry sync is only for local development or unreleased artifacts. Do not use it to rewrite the checksum of an already released version in a PR.
+The manual GitHub Actions workflow `Release Plugin` exists for backfills or exceptional releases from the default branch. It follows the same packaging and publishing rules as the automatic release flow.
 
 For normal releases use `bump=auto`. It derives `major` / `minor` / `patch` from conventional commits since the last plugin tag.
 
