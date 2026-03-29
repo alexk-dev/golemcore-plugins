@@ -1,0 +1,13 @@
+id: golemcore/obsidian
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/obsidian/1.0.0/golemcore-obsidian-plugin-1.0.0.jar"
+checksumSha256: "9b21bb01c79cab305347340c6f6aeacca2e2a98e33b017b91860a0bf6dce03c0"
+publishedAt: "2026-03-29T19:04:32Z"
+sourceCommit: "de4e0be88ca7eff56abef62aa1dd09cd2ade3aae"
+entrypoint: me.golemcore.plugins.golemcore.obsidian.ObsidianPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/obsidian"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -172,7 +173,7 @@ public class ObsidianVaultService {
                 return ToolResult.builder()
                         .success(false)
                         .failureKind(ToolFailureKind.EXECUTION_FAILED)
-                        .error("Obsidian " + verb.toLowerCase() + " partially failed after writing "
+                        .error("Obsidian " + verb.toLowerCase(Locale.ROOT) + " partially failed after writing "
                                 + targetPath + "; both source and target may now exist: " + ex.getMessage())
                         .data(data)
                         .build();

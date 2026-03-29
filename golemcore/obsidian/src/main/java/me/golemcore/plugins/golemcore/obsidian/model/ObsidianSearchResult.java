@@ -29,11 +29,11 @@ public final class ObsidianSearchResult {
     public static final class Match {
 
         private final String context;
-        private final MatchSpan match;
+        private final MatchSpan span;
 
-        public Match(String context, MatchSpan match) {
+        public Match(String context, MatchSpan span) {
             this.context = context;
-            this.match = match;
+            this.span = span;
         }
 
         public String getContext() {
@@ -41,7 +41,7 @@ public final class ObsidianSearchResult {
         }
 
         public MatchSpan getMatch() {
-            return match;
+            return span;
         }
     }
 

@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 class ObsidianApiClientTest {
 
     private static final MediaType APPLICATION_JSON = MediaType.get("application/json");
-    private static final MediaType TEXT_MARKDOWN = MediaType.get("text/markdown; charset=utf-8");
 
     private ObsidianPluginConfigService configService;
     private MockObsidianApiClient client;
