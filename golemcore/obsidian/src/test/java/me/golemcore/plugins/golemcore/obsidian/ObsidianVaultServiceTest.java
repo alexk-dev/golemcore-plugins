@@ -81,6 +81,16 @@ class ObsidianVaultServiceTest {
     }
 
     @Test
+    void shouldRejectDirectoryListingPathsThatPointToNotes() {
+        ToolResult result = service.listDirectory("Inbox.md");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("directory"));
+        assertTrue(apiClient.listDirectoryCalls.isEmpty());
+    }
+
+    @Test
     void shouldDenyCreateWhenWriteIsDisabled() {
         when(configService.getConfig()).thenReturn(config(false, true, true, true, 12_000));
 

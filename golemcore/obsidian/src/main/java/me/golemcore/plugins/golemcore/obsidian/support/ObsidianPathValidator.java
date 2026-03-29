@@ -7,7 +7,11 @@ import java.util.Locale;
 public final class ObsidianPathValidator {
 
     public String normalizeDirectoryPath(String path) {
-        return normalizeRelativePath(path, true);
+        String normalized = normalizeRelativePath(path, true);
+        if (!normalized.isBlank() && normalized.toLowerCase(Locale.ROOT).endsWith(".md")) {
+            throw new IllegalArgumentException("directory paths must point to directories, not notes");
+        }
+        return normalized;
     }
 
     public String normalizeNotePath(String path) {
