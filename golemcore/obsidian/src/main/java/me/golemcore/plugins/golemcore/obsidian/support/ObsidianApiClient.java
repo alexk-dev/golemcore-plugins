@@ -1,5 +1,6 @@
 package me.golemcore.plugins.golemcore.obsidian.support;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import me.golemcore.plugins.golemcore.obsidian.ObsidianPluginConfig;
@@ -44,15 +45,21 @@ public class ObsidianApiClient {
     }
 
     public List<String> listDirectory(String path) {
-        try {
-            Request request = new Request.Builder()
-                    .url(buildVaultUrl(path, true))
-                    .header("Accept", "application/json")
-                    .header("Authorization", authorizationHeader())
-                    .get()
-                    .build();
-            try (Response response = executeRequest(request)) {
-                JsonNode root = readJsonResponse(response);
+        Request request = new Request.Builder()
+                .url(buildVaultUrl(path, true))
+                .header("Accept", "application/json")
+                .header("Authorization", authorizationHeader())
+                .get()
+                .build();
+
+        try (Response response = openResponse(request)) {
+            String responseBody = readResponseBody(response);
+            ensureSuccessful(response, responseBody);
+            if (!hasText(responseBody)) {
+                return List.of();
+            }
+            try {
+                JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode filesNode = root.path("files");
                 if (!filesNode.isArray()) {
                     return List.of();
@@ -62,71 +69,64 @@ public class ObsidianApiClient {
                     files.add(fileNode.asText(""));
                 }
                 return List.copyOf(files);
+            } catch (JsonProcessingException ex) {
+                throw new ObsidianApiException(response.code(),
+                        "Invalid JSON response: " + firstText(ex.getOriginalMessage(), "Unexpected response"));
             }
-        } catch (IOException ex) {
-            throw new ObsidianApiException(500, "Obsidian request failed: " + ex.getMessage());
         }
     }
 
     public String readNote(String path) {
-        try {
-            Request request = new Request.Builder()
-                    .url(buildVaultUrl(path, false))
-                    .header("Accept", "application/vnd.olrapi.note+json, text/markdown")
-                    .header("Authorization", authorizationHeader())
-                    .get()
-                    .build();
-            try (Response response = executeRequest(request);
-                    ResponseBody body = response.body()) {
-                String responseBody = body != null ? body.string() : "";
-                ensureSuccess(response, responseBody);
-                if (!hasText(responseBody)) {
-                    return "";
-                }
-                JsonNode root = tryReadJson(responseBody);
-                if (root != null && root.hasNonNull("content")) {
+        Request request = new Request.Builder()
+                .url(buildVaultUrl(path, false))
+                .header("Accept", "application/vnd.olrapi.note+json")
+                .header("Authorization", authorizationHeader())
+                .get()
+                .build();
+
+        try (Response response = openResponse(request)) {
+            String responseBody = readResponseBody(response);
+            ensureSuccessful(response, responseBody);
+            if (!hasText(responseBody)) {
+                return "";
+            }
+            try {
+                JsonNode root = objectMapper.readTree(responseBody);
+                if (root.hasNonNull("content")) {
                     return root.path("content").asText("");
                 }
                 return responseBody;
+            } catch (JsonProcessingException ex) {
+                return responseBody;
             }
-        } catch (IOException ex) {
-            throw new ObsidianApiException(500, "Obsidian request failed: " + ex.getMessage());
         }
     }
 
     public void writeNote(String path, String content) {
-        try {
-            Request request = new Request.Builder()
-                    .url(buildVaultUrl(path, false))
-                    .header("Accept", "application/json")
-                    .header("Authorization", authorizationHeader())
-                    .header("Content-Type", TEXT_MARKDOWN.toString())
-                    .put(RequestBody.create(content != null ? content : "", TEXT_MARKDOWN))
-                    .build();
-            try (Response response = executeRequest(request);
-                    ResponseBody body = response.body()) {
-                String responseBody = body != null ? body.string() : "";
-                ensureSuccess(response, responseBody);
-            }
-        } catch (IOException ex) {
-            throw new ObsidianApiException(500, "Obsidian request failed: " + ex.getMessage());
+        Request request = new Request.Builder()
+                .url(buildVaultUrl(path, false))
+                .header("Accept", "application/json")
+                .header("Authorization", authorizationHeader())
+                .header("Content-Type", TEXT_MARKDOWN.toString())
+                .put(RequestBody.create(content != null ? content : "", TEXT_MARKDOWN))
+                .build();
+
+        try (Response response = openResponse(request)) {
+            String responseBody = readResponseBody(response);
+            ensureSuccessful(response, responseBody);
         }
     }
 
     public void deleteNote(String path) {
-        try {
-            Request request = new Request.Builder()
-                    .url(buildVaultUrl(path, false))
-                    .header("Authorization", authorizationHeader())
-                    .delete()
-                    .build();
-            try (Response response = executeRequest(request);
-                    ResponseBody body = response.body()) {
-                String responseBody = body != null ? body.string() : "";
-                ensureSuccess(response, responseBody);
-            }
-        } catch (IOException ex) {
-            throw new ObsidianApiException(500, "Obsidian request failed: " + ex.getMessage());
+        Request request = new Request.Builder()
+                .url(buildVaultUrl(path, false))
+                .header("Authorization", authorizationHeader())
+                .delete()
+                .build();
+
+        try (Response response = openResponse(request)) {
+            String responseBody = readResponseBody(response);
+            ensureSuccessful(response, responseBody);
         }
     }
 
@@ -136,30 +136,50 @@ public class ObsidianApiClient {
         }
 
         int effectiveContextLength = contextLength > 0 ? contextLength : getConfig().getDefaultSearchContextLength();
-        try {
-            Request request = new Request.Builder()
-                    .url(buildSearchUrl(query, effectiveContextLength))
-                    .header("Accept", "application/json")
-                    .header("Authorization", authorizationHeader())
-                    .post(RequestBody.create("", APPLICATION_JSON))
-                    .build();
-            try (Response response = executeRequest(request);
-                    ResponseBody body = response.body()) {
-                String responseBody = body != null ? body.string() : "";
-                ensureSuccess(response, responseBody);
-                if (!hasText(responseBody)) {
+        Request request = new Request.Builder()
+                .url(buildSearchUrl(query, effectiveContextLength))
+                .header("Accept", "application/json")
+                .header("Authorization", authorizationHeader())
+                .post(RequestBody.create("", APPLICATION_JSON))
+                .build();
+
+        try (Response response = openResponse(request)) {
+            String responseBody = readResponseBody(response);
+            ensureSuccessful(response, responseBody);
+            if (!hasText(responseBody)) {
+                return List.of();
+            }
+            try {
+                JsonNode root = objectMapper.readTree(responseBody);
+                if (!root.isArray()) {
                     return List.of();
                 }
-                JsonNode root = objectMapper.readTree(responseBody);
                 return parseSearchResults(root);
+            } catch (JsonProcessingException ex) {
+                throw new ObsidianApiException(response.code(),
+                        "Invalid JSON response: " + firstText(ex.getOriginalMessage(), "Unexpected response"));
             }
-        } catch (IOException ex) {
-            throw new ObsidianApiException(500, "Obsidian request failed: " + ex.getMessage());
         }
     }
 
     protected Response executeRequest(Request request) throws IOException {
         return buildHttpClient(getConfig()).newCall(request).execute();
+    }
+
+    private Response openResponse(Request request) {
+        try {
+            return executeRequest(request);
+        } catch (IOException ex) {
+            throw new ObsidianTransportException(transportMessage(ex), ex);
+        }
+    }
+
+    private String readResponseBody(Response response) {
+        try (ResponseBody body = response.body()) {
+            return body != null ? body.string() : "";
+        } catch (IOException ex) {
+            throw new ObsidianTransportException(transportMessage(ex), ex);
+        }
     }
 
     private ObsidianPluginConfig getConfig() {
@@ -261,18 +281,7 @@ public class ObsidianApiClient {
         return builder.build();
     }
 
-    private JsonNode readJsonResponse(Response response) throws IOException {
-        try (ResponseBody body = response.body()) {
-            String responseBody = body != null ? body.string() : "";
-            ensureSuccess(response, responseBody);
-            if (!hasText(responseBody)) {
-                return objectMapper.createObjectNode();
-            }
-            return objectMapper.readTree(responseBody);
-        }
-    }
-
-    private void ensureSuccess(Response response, String responseBody) {
+    private void ensureSuccessful(Response response, String responseBody) {
         if (response.isSuccessful()) {
             return;
         }
@@ -283,52 +292,30 @@ public class ObsidianApiClient {
         if (!hasText(responseBody)) {
             return "HTTP " + statusCode;
         }
-        JsonNode root = tryReadJson(responseBody);
-        if (root != null) {
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
             String message = firstText(root.path("message").asText(null),
                     root.path("error").asText(null),
                     root.path("status").asText(null));
             if (hasText(message)) {
                 return message;
             }
+        } catch (JsonProcessingException ignored) {
+            // Fall through to the raw response body.
         }
         return responseBody.trim();
     }
 
-    private JsonNode tryReadJson(String responseBody) {
-        try {
-            return objectMapper.readTree(responseBody);
-        } catch (IOException ignored) {
-            return null;
-        }
-    }
-
-    private List<ObsidianSearchResult> parseSearchResults(JsonNode root) {
-        JsonNode resultsNode = root.path("results");
-        if (resultsNode.isArray()) {
-            return parseSearchResultsArray(resultsNode);
-        }
-        JsonNode matchesNode = root.path("matches");
-        if (matchesNode.isArray()) {
-            return parseSearchResultsArray(matchesNode);
-        }
-        if (root.isArray()) {
-            return parseSearchResultsArray(root);
-        }
-        return List.of();
-    }
-
-    private List<ObsidianSearchResult> parseSearchResultsArray(JsonNode arrayNode) {
+    private List<ObsidianSearchResult> parseSearchResults(JsonNode arrayNode) {
         List<ObsidianSearchResult> results = new ArrayList<>(arrayNode.size());
         for (JsonNode resultNode : arrayNode) {
-            results.add(new ObsidianSearchResult(
-                    firstText(resultNode.path("filename").asText(null),
-                            resultNode.path("path").asText(null),
-                            resultNode.path("file").asText(null),
-                            resultNode.path("title").asText(null),
-                            ""),
-                    resultNode.path("score").isNumber() ? resultNode.path("score").asDouble() : 0.0d,
-                    parseMatches(resultNode.path("matches"))));
+            String filename = firstText(resultNode.path("filename").asText(null),
+                    resultNode.path("path").asText(null),
+                    resultNode.path("file").asText(null),
+                    resultNode.path("title").asText(null),
+                    "");
+            double score = resultNode.path("score").isNumber() ? resultNode.path("score").asDouble() : 0.0d;
+            results.add(new ObsidianSearchResult(filename, score, parseMatches(resultNode.path("matches"))));
         }
         return List.copyOf(results);
     }
@@ -339,16 +326,24 @@ public class ObsidianApiClient {
         }
         List<ObsidianSearchResult.Match> matches = new ArrayList<>(matchesNode.size());
         for (JsonNode matchNode : matchesNode) {
+            JsonNode spanNode = matchNode.path("match");
             matches.add(new ObsidianSearchResult.Match(
                     matchNode.path("context").asText(""),
-                    matchNode.path("start").isNumber() ? matchNode.path("start").asInt() : null,
-                    matchNode.path("end").isNumber() ? matchNode.path("end").asInt() : null));
+                    new ObsidianSearchResult.MatchSpan(
+                            spanNode.path("start").isNumber() ? spanNode.path("start").asInt() : null,
+                            spanNode.path("end").isNumber() ? spanNode.path("end").asInt() : null,
+                            spanNode.path("source").asText(""))));
         }
         return List.copyOf(matches);
     }
 
     private String authorizationHeader() {
         return "Bearer " + getConfig().getApiKey();
+    }
+
+    private String transportMessage(IOException ex) {
+        String message = ex.getMessage();
+        return hasText(message) ? "Obsidian transport failed: " + message : "Obsidian transport failed";
     }
 
     private String firstText(String... values) {

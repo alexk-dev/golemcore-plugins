@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -86,6 +87,7 @@ class ObsidianApiClientTest {
         Request readRequest = client.getCapturedRequests().get(0);
         assertEquals("GET", readRequest.method());
         assertEquals("https://127.0.0.1:27124/vault/Inbox%20Notes.md", readRequest.url().toString());
+        assertEquals("application/vnd.olrapi.note+json", readRequest.header("Accept"));
 
         Request writeRequest = client.getCapturedRequests().get(1);
         assertEquals("PUT", writeRequest.method());
@@ -106,23 +108,35 @@ class ObsidianApiClientTest {
     }
 
     @Test
-    void shouldSearchSimpleUsingQueryParametersAndParseResults() throws Exception {
+    void shouldWrapTransportFailuresWithoutSyntheticHttpStatus() {
+        client.enqueueFailure(new IOException("connect timed out"));
+
+        ObsidianTransportException exception = assertThrows(ObsidianTransportException.class,
+                () -> client.readNote("Inbox.md"));
+
+        assertTrue(exception.getMessage().contains("connect timed out"));
+        assertInstanceOf(IOException.class, exception.getCause());
+    }
+
+    @Test
+    void shouldSearchSimpleUsingTopLevelArrayAndNestedMatchContract() throws Exception {
         client.enqueueResponse(200, """
-                {
-                  "results": [
-                    {
-                      "filename": "Inbox.md",
-                      "score": 0.98,
-                      "matches": [
-                        {
-                          "context": "Daily review notes",
+                [
+                  {
+                    "filename": "Inbox.md",
+                    "score": 0.98,
+                    "matches": [
+                      {
+                        "context": "Daily review notes",
+                        "match": {
                           "start": 6,
-                          "end": 12
+                          "end": 12,
+                          "source": "Inbox.md"
                         }
-                      ]
-                    }
-                  ]
-                }
+                      }
+                    ]
+                  }
+                ]
                 """);
 
         List<ObsidianSearchResult> results = client.simpleSearch("daily review", 42);
@@ -131,9 +145,12 @@ class ObsidianApiClientTest {
         assertEquals("POST", request.method());
         assertEquals("https://127.0.0.1:27124/search/simple/?query=daily%20review&contextLength=42",
                 request.url().toString());
-        assertEquals(List.of("Inbox.md"), results.stream().map(ObsidianSearchResult::filename).toList());
-        assertEquals(0.98, results.getFirst().score());
-        assertEquals("Daily review notes", results.getFirst().matches().getFirst().context());
+        assertEquals(List.of("Inbox.md"), results.stream().map(ObsidianSearchResult::getFilename).toList());
+        assertEquals(0.98, results.getFirst().getScore());
+        assertEquals("Daily review notes", results.getFirst().getMatches().getFirst().getContext());
+        assertEquals(6, results.getFirst().getMatches().getFirst().getMatch().getStart());
+        assertEquals(12, results.getFirst().getMatches().getFirst().getMatch().getEnd());
+        assertEquals("Inbox.md", results.getFirst().getMatches().getFirst().getMatch().getSource());
     }
 
     private String readRequestBody(Request request) throws IOException {
@@ -157,9 +174,12 @@ class ObsidianApiClientTest {
         }
 
         @Override
-        protected Response executeRequest(Request request) {
+        protected Response executeRequest(Request request) throws IOException {
             capturedRequests.add(request);
             PlannedResponse plannedResponse = plannedResponses.remove();
+            if (plannedResponse.failure() != null) {
+                throw plannedResponse.failure();
+            }
             ResponseBody responseBody = ResponseBody.create(
                     plannedResponse.body() == null ? "" : plannedResponse.body(),
                     plannedResponse.mediaType());
@@ -173,7 +193,11 @@ class ObsidianApiClientTest {
         }
 
         private void enqueueResponse(int code, String body) {
-            plannedResponses.add(new PlannedResponse(code, body, body == null ? APPLICATION_JSON : APPLICATION_JSON));
+            plannedResponses.add(new PlannedResponse(code, body, APPLICATION_JSON, null));
+        }
+
+        private void enqueueFailure(IOException failure) {
+            plannedResponses.add(new PlannedResponse(0, null, null, failure));
         }
 
         private List<Request> getCapturedRequests() {
@@ -181,6 +205,6 @@ class ObsidianApiClientTest {
         }
     }
 
-    private record PlannedResponse(int code, String body, MediaType mediaType) {
+    private record PlannedResponse(int code, String body, MediaType mediaType, IOException failure) {
     }
 }
