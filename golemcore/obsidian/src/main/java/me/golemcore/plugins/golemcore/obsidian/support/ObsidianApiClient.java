@@ -62,7 +62,8 @@ public class ObsidianApiClient {
                 JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode filesNode = root.path("files");
                 if (!filesNode.isArray()) {
-                    return List.of();
+                    throw new ObsidianApiException(response.code(),
+                            "Invalid vault directory response: expected {files: [...]}");
                 }
                 List<String> files = new ArrayList<>(filesNode.size());
                 for (JsonNode fileNode : filesNode) {
@@ -152,7 +153,8 @@ public class ObsidianApiClient {
             try {
                 JsonNode root = objectMapper.readTree(responseBody);
                 if (!root.isArray()) {
-                    return List.of();
+                    throw new ObsidianApiException(response.code(),
+                            "Invalid search response: expected top-level array");
                 }
                 return parseSearchResults(root);
             } catch (JsonProcessingException ex) {

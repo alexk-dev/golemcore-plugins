@@ -76,7 +76,19 @@ class ObsidianApiClientTest {
 
     @Test
     void shouldReadAndWriteFilesUsingPathSafeVaultEndpoints() throws Exception {
-        client.enqueueResponse(200, "# Inbox\nBody");
+        client.enqueueResponse(200, """
+                {
+                  "content": "# Inbox\\nBody",
+                  "frontmatter": {},
+                  "path": "Inbox Notes.md",
+                  "stat": {
+                    "ctime": 1,
+                    "mtime": 2,
+                    "size": 11
+                  },
+                  "tags": []
+                }
+                """);
         client.enqueueResponse(204, null);
 
         String note = client.readNote("Inbox Notes.md");
@@ -131,7 +143,7 @@ class ObsidianApiClientTest {
                         "match": {
                           "start": 6,
                           "end": 12,
-                          "source": "Inbox.md"
+                          "source": "content"
                         }
                       }
                     ]
@@ -150,7 +162,29 @@ class ObsidianApiClientTest {
         assertEquals("Daily review notes", results.getFirst().getMatches().getFirst().getContext());
         assertEquals(6, results.getFirst().getMatches().getFirst().getMatch().getStart());
         assertEquals(12, results.getFirst().getMatches().getFirst().getMatch().getEnd());
-        assertEquals("Inbox.md", results.getFirst().getMatches().getFirst().getMatch().getSource());
+        assertEquals("content", results.getFirst().getMatches().getFirst().getMatch().getSource());
+    }
+
+    @Test
+    void shouldFailFastWhenSuccessfulListResponseHasWrongShape() {
+        client.enqueueResponse(200, "{\"files\":null}");
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.listDirectory(""));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("Invalid"));
+    }
+
+    @Test
+    void shouldFailFastWhenSuccessfulSearchResponseHasWrongShape() {
+        client.enqueueResponse(200, "{\"results\":[]}");
+
+        ObsidianApiException exception = assertThrows(ObsidianApiException.class,
+                () -> client.simpleSearch("daily review", 42));
+
+        assertEquals(200, exception.getStatusCode());
+        assertTrue(exception.getMessage().contains("array"));
     }
 
     private String readRequestBody(Request request) throws IOException {
