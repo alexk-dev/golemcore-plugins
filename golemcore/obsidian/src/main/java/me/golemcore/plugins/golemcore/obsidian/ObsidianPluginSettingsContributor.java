@@ -53,10 +53,10 @@ public class ObsidianPluginSettingsContributor implements PluginSettingsContribu
         values.put("allowInsecureTls", Boolean.TRUE.equals(config.getAllowInsecureTls()));
         values.put("defaultSearchContextLength", config.getDefaultSearchContextLength());
         values.put("maxReadChars", config.getMaxReadChars());
-        values.put("allowWrite", false);
-        values.put("allowDelete", false);
-        values.put("allowMove", false);
-        values.put("allowRename", false);
+        values.put("allowWrite", Boolean.TRUE.equals(config.getAllowWrite()));
+        values.put("allowDelete", Boolean.TRUE.equals(config.getAllowDelete()));
+        values.put("allowMove", Boolean.TRUE.equals(config.getAllowMove()));
+        values.put("allowRename", Boolean.TRUE.equals(config.getAllowRename()));
 
         return PluginSettingsSection.builder()
                 .title("Obsidian")
