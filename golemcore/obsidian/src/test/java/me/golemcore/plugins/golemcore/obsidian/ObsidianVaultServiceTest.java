@@ -50,9 +50,12 @@ class ObsidianVaultServiceTest {
 
     @Test
     void shouldNormalizeNotePathsBeforeUpdating() {
+        apiClient.noteContents.put("Inbox.md", "# Existing");
+
         ToolResult result = service.updateNote("./Projects/../Inbox.md", "# Inbox");
 
         assertTrue(result.isSuccess());
+        assertEquals(List.of("Inbox.md"), apiClient.readPaths);
         assertEquals(List.of("Inbox.md"), apiClient.writePaths);
         assertEquals(List.of("# Inbox"), apiClient.writeContents);
     }
@@ -90,6 +93,18 @@ class ObsidianVaultServiceTest {
     }
 
     @Test
+    void shouldRejectCreateWhenDestinationAlreadyExists() {
+        apiClient.noteContents.put("Projects/Todo.md", "# Existing");
+
+        ToolResult result = service.createNote("Projects/Todo.md", "# Todo");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("already exists"));
+        assertTrue(apiClient.writePaths.isEmpty());
+    }
+
+    @Test
     void shouldDenyDeleteWhenDeleteIsDisabled() {
         when(configService.getConfig()).thenReturn(config(true, false, true, true, 12_000));
 
@@ -98,6 +113,16 @@ class ObsidianVaultServiceTest {
         assertFalse(result.isSuccess());
         assertEquals(ToolFailureKind.POLICY_DENIED, result.getFailureKind());
         assertTrue(result.getError().contains("delete is disabled"));
+        assertTrue(apiClient.deletePaths.isEmpty());
+    }
+
+    @Test
+    void shouldRejectDeleteWhenSourceDoesNotExist() {
+        ToolResult result = service.deleteNote("Projects/Todo.md");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("does not exist"));
         assertTrue(apiClient.deletePaths.isEmpty());
     }
 
@@ -127,6 +152,16 @@ class ObsidianVaultServiceTest {
         assertTrue(apiClient.readPaths.isEmpty());
         assertTrue(apiClient.writePaths.isEmpty());
         assertTrue(apiClient.deletePaths.isEmpty());
+    }
+
+    @Test
+    void shouldRejectUpdateWhenSourceDoesNotExist() {
+        ToolResult result = service.updateNote("Projects/Todo.md", "# Todo");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("does not exist"));
+        assertTrue(apiClient.writePaths.isEmpty());
     }
 
     @Test
@@ -176,10 +211,41 @@ class ObsidianVaultServiceTest {
 
     @Test
     void shouldDeleteValidatedNote() {
+        apiClient.noteContents.put("Todo.md", "# Todo");
+
         ToolResult result = service.deleteNote("./Projects/../Todo.md");
 
         assertTrue(result.isSuccess());
+        assertEquals(List.of("Todo.md"), apiClient.readPaths);
         assertEquals(List.of("Todo.md"), apiClient.deletePaths);
+    }
+
+    @Test
+    void shouldRejectMoveWhenTargetAlreadyExists() {
+        apiClient.noteContents.put("Projects/Todo.md", "# Todo");
+        apiClient.noteContents.put("Archive/Todo.md", "# Existing");
+
+        ToolResult result = service.moveNote("Projects/Todo.md", "Archive/Todo.md");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("already exists"));
+        assertEquals(List.of("Projects/Todo.md", "Archive/Todo.md"), apiClient.readPaths);
+        assertTrue(apiClient.writePaths.isEmpty());
+        assertTrue(apiClient.deletePaths.isEmpty());
+    }
+
+    @Test
+    void shouldRejectMoveWhenSourceAndTargetNormalizeToSamePath() {
+        apiClient.noteContents.put("Inbox.md", "# Inbox");
+
+        ToolResult result = service.moveNote("./Inbox.md", "Inbox.md");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("must differ"));
+        assertTrue(apiClient.writePaths.isEmpty());
+        assertTrue(apiClient.deletePaths.isEmpty());
     }
 
     @Test
@@ -192,9 +258,12 @@ class ObsidianVaultServiceTest {
         assertFalse(result.isSuccess());
         assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
         assertTrue(result.getError().contains("both source and target may now exist"));
-        assertEquals(List.of("Projects/Todo.md"), apiClient.readPaths);
+        assertEquals(List.of("Projects/Todo.md", "Archive/Todo.md"), apiClient.readPaths);
         assertEquals(List.of("Archive/Todo.md"), apiClient.writePaths);
         assertEquals(List.of("Projects/Todo.md"), apiClient.deletePaths);
+        Map<?, ?> data = assertInstanceOf(Map.class, result.getData());
+        assertEquals("Projects/Todo.md", data.get("path"));
+        assertEquals("Archive/Todo.md", data.get("target_path"));
     }
 
     @Test
@@ -204,9 +273,22 @@ class ObsidianVaultServiceTest {
         ToolResult result = service.renameNote("Projects/Todo.md", "Done.md");
 
         assertTrue(result.isSuccess());
-        assertEquals(List.of("Projects/Todo.md"), apiClient.readPaths);
+        assertEquals(List.of("Projects/Todo.md", "Projects/Done.md"), apiClient.readPaths);
         assertEquals(List.of("Projects/Done.md"), apiClient.writePaths);
         assertEquals(List.of("Projects/Todo.md"), apiClient.deletePaths);
+    }
+
+    @Test
+    void shouldRejectRenameWhenNewNameKeepsSamePath() {
+        apiClient.noteContents.put("Projects/Todo.md", "# Todo");
+
+        ToolResult result = service.renameNote("Projects/Todo.md", "Todo.md");
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("must differ"));
+        assertTrue(apiClient.writePaths.isEmpty());
+        assertTrue(apiClient.deletePaths.isEmpty());
     }
 
     private ObsidianPluginConfig config(

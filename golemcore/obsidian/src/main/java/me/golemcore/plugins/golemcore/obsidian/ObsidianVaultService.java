@@ -32,6 +32,7 @@ public class ObsidianVaultService {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("path", normalizedPath);
             data.put("entries", entries);
+            data.put("files", entries);
             return ToolResult.success(
                     "Listed " + entries.size() + " item(s) in " + displayPath(normalizedPath),
                     data);
@@ -80,11 +81,11 @@ public class ObsidianVaultService {
     }
 
     public ToolResult createNote(String path, String content) {
-        return writeNote(path, content, "Created");
+        return writeNote(path, content, "Created", false);
     }
 
     public ToolResult updateNote(String path, String content) {
-        return writeNote(path, content, "Updated");
+        return writeNote(path, content, "Updated", true);
     }
 
     public ToolResult deleteNote(String path) {
@@ -95,6 +96,7 @@ public class ObsidianVaultService {
 
         try {
             String normalizedPath = pathValidator.normalizeNotePath(path);
+            requireExistingNote(normalizedPath);
             apiClient.deleteNote(normalizedPath);
             return ToolResult.success("Deleted note " + normalizedPath, Map.of("path", normalizedPath));
         } catch (IllegalArgumentException | ObsidianApiException | ObsidianTransportException ex) {
@@ -132,7 +134,7 @@ public class ObsidianVaultService {
         }
     }
 
-    private ToolResult writeNote(String path, String content, String verb) {
+    private ToolResult writeNote(String path, String content, String verb, boolean requireExisting) {
         if (!Boolean.TRUE.equals(configService.getConfig().getAllowWrite())) {
             return ToolResult.failure(ToolFailureKind.POLICY_DENIED,
                     "Obsidian write is disabled in plugin settings");
@@ -140,7 +142,13 @@ public class ObsidianVaultService {
 
         try {
             String normalizedPath = pathValidator.normalizeNotePath(path);
-            apiClient.writeNote(normalizedPath, content != null ? content : "");
+            requireContent(content);
+            if (requireExisting) {
+                requireExistingNote(normalizedPath);
+            } else {
+                ensureNoteAbsent(normalizedPath);
+            }
+            apiClient.writeNote(normalizedPath, content);
             return ToolResult.success(verb + " note " + normalizedPath, Map.of("path", normalizedPath));
         } catch (IllegalArgumentException | ObsidianApiException | ObsidianTransportException ex) {
             return executionFailure(ex.getMessage());
@@ -149,22 +157,68 @@ public class ObsidianVaultService {
 
     private ToolResult relocateNote(String sourcePath, String targetPath, String verb) {
         try {
-            String content = apiClient.readNote(sourcePath);
+            if (sourcePath.equals(targetPath)) {
+                throw new IllegalArgumentException("Source and target paths must differ");
+            }
+            String content = requireExistingNote(sourcePath);
+            ensureNoteAbsent(targetPath);
             apiClient.writeNote(targetPath, content);
             try {
                 apiClient.deleteNote(sourcePath);
             } catch (ObsidianApiException | ObsidianTransportException ex) {
-                return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
-                        "Obsidian " + verb.toLowerCase() + " partially failed after writing "
-                                + targetPath + "; both source and target may now exist: " + ex.getMessage());
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("path", sourcePath);
+                data.put("target_path", targetPath);
+                return ToolResult.builder()
+                        .success(false)
+                        .failureKind(ToolFailureKind.EXECUTION_FAILED)
+                        .error("Obsidian " + verb.toLowerCase() + " partially failed after writing "
+                                + targetPath + "; both source and target may now exist: " + ex.getMessage())
+                        .data(data)
+                        .build();
             }
 
             Map<String, Object> data = new LinkedHashMap<>();
-            data.put("sourcePath", sourcePath);
-            data.put("targetPath", targetPath);
+            data.put("path", sourcePath);
+            data.put("target_path", targetPath);
             return ToolResult.success(verb + " note from " + sourcePath + " to " + targetPath, data);
         } catch (IllegalArgumentException | ObsidianApiException | ObsidianTransportException ex) {
             return executionFailure(ex.getMessage());
+        }
+    }
+
+    private String requireExistingNote(String path) {
+        try {
+            return apiClient.readNote(path);
+        } catch (ObsidianApiException ex) {
+            if (ex.getStatusCode() == 404) {
+                throw new IllegalArgumentException("Note does not exist: " + path);
+            }
+            throw ex;
+        }
+    }
+
+    private void ensureNoteAbsent(String path) {
+        if (noteExists(path)) {
+            throw new IllegalArgumentException("Target note already exists: " + path);
+        }
+    }
+
+    private boolean noteExists(String path) {
+        try {
+            apiClient.readNote(path);
+            return true;
+        } catch (ObsidianApiException ex) {
+            if (ex.getStatusCode() == 404) {
+                return false;
+            }
+            throw ex;
+        }
+    }
+
+    private void requireContent(String content) {
+        if (content == null) {
+            throw new IllegalArgumentException("Content is required");
         }
     }
 
