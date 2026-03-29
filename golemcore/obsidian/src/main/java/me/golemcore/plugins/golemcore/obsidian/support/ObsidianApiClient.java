@@ -89,7 +89,8 @@ public class ObsidianApiClient {
             String responseBody = readResponseBody(response);
             ensureSuccessful(response, responseBody);
             if (!hasText(responseBody)) {
-                return "";
+                throw new ObsidianApiException(response.code(),
+                        "Invalid note response: expected JSON with content");
             }
             try {
                 JsonNode root = objectMapper.readTree(responseBody);
