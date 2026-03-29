@@ -70,7 +70,15 @@ public class ObsidianVaultToolProvider implements ToolProvider {
                                 PARAM_NEW_NAME, Map.of(
                                         TYPE, TYPE_STRING,
                                         "description", "New file name for rename_note.")),
-                        REQUIRED, List.of(PARAM_OPERATION)))
+                        REQUIRED, List.of(PARAM_OPERATION),
+                        "allOf", List.of(
+                                requiredWhen("read_note", List.of(PARAM_PATH)),
+                                requiredWhen("search_notes", List.of(PARAM_QUERY)),
+                                requiredWhen("create_note", List.of(PARAM_PATH, PARAM_CONTENT)),
+                                requiredWhen("update_note", List.of(PARAM_PATH, PARAM_CONTENT)),
+                                requiredWhen("delete_note", List.of(PARAM_PATH)),
+                                requiredWhen("move_note", List.of(PARAM_PATH, PARAM_TARGET_PATH)),
+                                requiredWhen("rename_note", List.of(PARAM_PATH, PARAM_NEW_NAME)))))
                 .build();
     }
 
@@ -88,9 +96,7 @@ public class ObsidianVaultToolProvider implements ToolProvider {
         return switch (operation) {
         case "list_directory" -> service.listDirectory(readString(parameters.get(PARAM_PATH)));
         case "read_note" -> service.readNote(readString(parameters.get(PARAM_PATH)));
-        case "search_notes" -> service.searchNotes(
-                readString(parameters.get(PARAM_QUERY)),
-                readInteger(parameters.get(PARAM_CONTEXT_LENGTH)));
+        case "search_notes" -> executeSearchNotes(parameters);
         case "create_note" -> service.createNote(
                 readString(parameters.get(PARAM_PATH)),
                 readString(parameters.get(PARAM_CONTENT)));
@@ -109,6 +115,24 @@ public class ObsidianVaultToolProvider implements ToolProvider {
         };
     }
 
+    private ToolResult executeSearchNotes(Map<String, Object> parameters) {
+        Object rawContextLength = parameters.get(PARAM_CONTEXT_LENGTH);
+        Integer contextLength = readInteger(rawContextLength);
+        if (rawContextLength != null && contextLength == null) {
+            return ToolResult.failure(ToolFailureKind.EXECUTION_FAILED, "context_length must be an integer");
+        }
+        return service.searchNotes(readString(parameters.get(PARAM_QUERY)), contextLength);
+    }
+
+    private Map<String, Object> requiredWhen(String operation, List<String> requiredFields) {
+        return Map.of(
+                "if", Map.of(
+                        PROPERTIES, Map.of(
+                                PARAM_OPERATION, Map.of("const", operation))),
+                "then", Map.of(
+                        REQUIRED, requiredFields));
+    }
+
     private String readString(Object value) {
         if (value instanceof String stringValue) {
             return stringValue;
@@ -117,8 +141,20 @@ public class ObsidianVaultToolProvider implements ToolProvider {
     }
 
     private Integer readInteger(Object value) {
-        if (value instanceof Number numberValue) {
-            return numberValue.intValue();
+        if (value instanceof Integer integerValue) {
+            return integerValue;
+        }
+        if (value instanceof Long longValue) {
+            if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) {
+                return longValue.intValue();
+            }
+            return null;
+        }
+        if (value instanceof Short shortValue) {
+            return shortValue.intValue();
+        }
+        if (value instanceof Byte byteValue) {
+            return byteValue.intValue();
         }
         if (value instanceof String stringValue && !stringValue.isBlank()) {
             try {

@@ -48,6 +48,27 @@ class ObsidianVaultToolProviderTest {
     }
 
     @Test
+    void shouldRequirePathForReadNoteInSchema() {
+        ToolDefinition definition = provider.getDefinition();
+
+        Map<String, Object> schema = definition.getInputSchema();
+        List<?> allOf = (List<?>) schema.get("allOf");
+        Map<?, ?> readRule = (Map<?, ?>) allOf.stream()
+                .map(Map.class::cast)
+                .filter(rule -> {
+                    Map<?, ?> condition = (Map<?, ?>) rule.get("if");
+                    Map<?, ?> conditionProperties = (Map<?, ?>) condition.get("properties");
+                    Map<?, ?> operationProperty = (Map<?, ?>) conditionProperties.get("operation");
+                    return "read_note".equals(operationProperty.get("const"));
+                })
+                .findFirst()
+                .orElseThrow();
+        Map<?, ?> thenClause = (Map<?, ?>) readRule.get("then");
+
+        assertEquals(List.of("path"), thenClause.get("required"));
+    }
+
+    @Test
     void shouldRejectMissingOperation() {
         ToolResult result = provider.execute(Map.of()).join();
 
@@ -71,6 +92,19 @@ class ObsidianVaultToolProviderTest {
     }
 
     @Test
+    void shouldDispatchReadNoteToVaultService() {
+        when(service.readNote("Projects/Todo.md"))
+                .thenReturn(ToolResult.success("read"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "read_note",
+                "path", "Projects/Todo.md")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).readNote("Projects/Todo.md");
+    }
+
+    @Test
     void shouldDispatchSearchWithOptionalContextLength() {
         when(service.searchNotes("daily review", 42))
                 .thenReturn(ToolResult.success("found"));
@@ -85,6 +119,18 @@ class ObsidianVaultToolProviderTest {
     }
 
     @Test
+    void shouldRejectNonIntegerContextLength() {
+        ToolResult result = provider.execute(Map.of(
+                "operation", "search_notes",
+                "query", "daily review",
+                "context_length", 42.5d)).join();
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("context_length"));
+    }
+
+    @Test
     void shouldDispatchListDirectoryWithoutPath() {
         when(service.listDirectory(null))
                 .thenReturn(ToolResult.success("listed"));
@@ -93,5 +139,69 @@ class ObsidianVaultToolProviderTest {
 
         assertTrue(result.isSuccess());
         verify(service).listDirectory(null);
+    }
+
+    @Test
+    void shouldDispatchCreateToVaultService() {
+        when(service.createNote("Projects/Todo.md", "# Todo"))
+                .thenReturn(ToolResult.success("created"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_note",
+                "path", "Projects/Todo.md",
+                "content", "# Todo")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).createNote("Projects/Todo.md", "# Todo");
+    }
+
+    @Test
+    void shouldDispatchUpdateToVaultService() {
+        when(service.updateNote("Projects/Todo.md", "# Updated"))
+                .thenReturn(ToolResult.success("updated"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "update_note",
+                "path", "Projects/Todo.md",
+                "content", "# Updated")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).updateNote("Projects/Todo.md", "# Updated");
+    }
+
+    @Test
+    void shouldDispatchDeleteToVaultService() {
+        when(service.deleteNote("Projects/Todo.md"))
+                .thenReturn(ToolResult.success("deleted"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "delete_note",
+                "path", "Projects/Todo.md")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).deleteNote("Projects/Todo.md");
+    }
+
+    @Test
+    void shouldDispatchMoveToVaultService() {
+        when(service.moveNote("Projects/Todo.md", "Archive/Todo.md"))
+                .thenReturn(ToolResult.success("moved"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "move_note",
+                "path", "Projects/Todo.md",
+                "target_path", "Archive/Todo.md")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).moveNote("Projects/Todo.md", "Archive/Todo.md");
+    }
+
+    @Test
+    void shouldRejectUnsupportedOperation() {
+        ToolResult result = provider.execute(Map.of("operation", "unknown")).join();
+
+        assertFalse(result.isSuccess());
+        assertEquals(ToolFailureKind.EXECUTION_FAILED, result.getFailureKind());
+        assertTrue(result.getError().contains("Unsupported"));
     }
 }
