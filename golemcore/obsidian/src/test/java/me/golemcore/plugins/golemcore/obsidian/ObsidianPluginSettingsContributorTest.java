@@ -49,13 +49,25 @@ class ObsidianPluginSettingsContributorTest {
 
     @Test
     void shouldRoundTripSavedPolicyFlagsThroughGetSection() {
-        config.setEnabled(true);
-        config.setBaseUrl("https://127.0.0.1:27124");
-        config.setApiKey("existing-secret");
-        config.setTimeoutMs(45_000);
-        config.setAllowInsecureTls(true);
-        config.setDefaultSearchContextLength(120);
-        config.setMaxReadChars(8_000);
+        ObsidianPluginConfig initialConfig = ObsidianPluginConfig.builder()
+                .apiKey("existing-secret")
+                .build();
+        initialConfig.normalize();
+        ObsidianPluginConfig persistedConfig = ObsidianPluginConfig.builder()
+                .enabled(true)
+                .baseUrl("https://127.0.0.1:27124")
+                .apiKey("existing-secret")
+                .timeoutMs(45_000)
+                .allowInsecureTls(true)
+                .defaultSearchContextLength(120)
+                .maxReadChars(8_000)
+                .allowWrite(true)
+                .allowDelete(false)
+                .allowMove(true)
+                .allowRename(false)
+                .build();
+        persistedConfig.normalize();
+        when(configService.getConfig()).thenReturn(initialConfig, persistedConfig);
 
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("enabled", true);

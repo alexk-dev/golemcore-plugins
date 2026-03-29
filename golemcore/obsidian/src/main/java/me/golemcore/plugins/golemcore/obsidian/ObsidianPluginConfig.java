@@ -19,7 +19,8 @@ public class ObsidianPluginConfig {
     @Builder.Default
     private Boolean enabled = false;
 
-    private String baseUrl;
+    @Builder.Default
+    private String baseUrl = DEFAULT_BASE_URL;
     private String apiKey;
 
     @Builder.Default
