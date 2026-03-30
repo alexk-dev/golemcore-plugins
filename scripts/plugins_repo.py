@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import subprocess
 import sys
@@ -91,6 +93,62 @@ def run_command(*args: str, capture_output: bool = True) -> str:
         capture_output=capture_output,
     )
     return result.stdout.strip() if capture_output else ""
+
+
+def run_command_result(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def detect_repository_owner() -> str | None:
+    owner = os.environ.get("GITHUB_REPOSITORY_OWNER")
+    if owner and owner.strip():
+        return owner.strip()
+
+    repository = os.environ.get("GITHUB_REPOSITORY")
+    if repository and "/" in repository:
+        return repository.split("/", 1)[0].strip() or None
+    return None
+
+
+def github_packages_namespace(owner: str) -> str:
+    result = run_command_result("gh", "api", f"/users/{owner}")
+    if result.returncode != 0:
+        error = result.stderr.strip() or result.stdout.strip()
+        raise SystemExit(f"Unable to resolve GitHub owner type for {owner}: {error}")
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"Unable to parse GitHub owner payload for {owner}: {error}") from error
+
+    return "orgs" if str(payload.get("type")) == "Organization" else "users"
+
+
+def remote_package_version_exists(owner: str, artifact_id: str, version: str) -> bool:
+    package_name = f"me.golemcore.plugins.{artifact_id}"
+    namespace = github_packages_namespace(owner)
+    result = run_command_result("gh", "api", f"/{namespace}/{owner}/packages/maven/{package_name}/versions?per_page=100")
+    if result.returncode != 0:
+        error = result.stderr.strip() or result.stdout.strip()
+        if "404" in error:
+            return False
+        raise SystemExit(f"Unable to read GitHub Packages versions for {package_name}: {error}")
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"Unable to parse GitHub Packages payload for {package_name}: {error}") from error
+
+    if not isinstance(payload, list):
+        raise SystemExit(f"Unexpected GitHub Packages response for {package_name}: expected a list of versions")
+
+    return any(str(item.get("name")) == version for item in payload if isinstance(item, dict))
 
 
 def parse_scalar(raw: str):
@@ -761,6 +819,28 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
     if new_version in current_versions and new_version != spec.version:
         raise SystemExit(f"Version {new_version} already exists in {spec.registry_index_path}")
 
+    repository_owner = detect_repository_owner()
+    if repository_owner and remote_package_version_exists(repository_owner, spec.artifact_id, new_version):
+        write_github_output(
+            github_output,
+            {
+                "plugin_id": spec.plugin_id,
+                "plugin_name": spec.name,
+                "plugin_owner": spec.owner,
+                "version": new_version,
+                "artifact_id": spec.artifact_id,
+                "skipped_existing_package": "true",
+                "skip_reason": "existing_github_package",
+                "tag_name": spec.release_tag(new_version),
+                "release_name": f"{spec.plugin_id} v{new_version}",
+            },
+        )
+        print(
+            f"Skipping release {spec.release_tag(new_version)}: "
+            f"GitHub Package {spec.artifact_id}:{new_version} already exists"
+        )
+        return
+
     if new_version != spec.version:
         write_child_pom_version(spec.pom_path, new_version)
         updated_spec = discover_plugins()[plugin_id]
@@ -815,6 +895,7 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
             "registry_version_path": version_path.relative_to(ROOT).as_posix(),
             "tag_name": next_spec.release_tag(new_version),
             "release_name": f"{next_spec.plugin_id} v{new_version}",
+            "skipped_existing_package": "false",
         },
     )
 
