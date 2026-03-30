@@ -11,7 +11,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <artifactId>golemcore-plugin-extension-api</artifactId>
     <name>golemcore-plugin-extension-api</name>
     <description>Compile-time plugin API and shared contracts for GolemCore plugins</description>

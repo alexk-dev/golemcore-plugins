@@ -42,6 +42,8 @@ public class PluginSettingsField {
     private String placeholder;
     private Boolean required;
     private Boolean readOnly;
+    private Boolean masked;
+    private Boolean copyable;
     private Double min;
     private Double max;
     private Double step;

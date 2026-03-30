@@ -320,6 +320,25 @@ class TelegramSessionServiceTest {
         verify(pointerService).setActiveConversationKey("telegram|100", "conv-own");
     }
 
+    @Test
+    void shouldTreatScopedThreadTransportChatIdAsIndependentConversationOwner() {
+        when(pointerService.buildTelegramPointerKey("100#thread:55")).thenReturn("telegram|100#thread:55");
+        when(pointerService.getActiveConversationKey("telegram|100#thread:55")).thenReturn(Optional.empty());
+        when(sessionPort.listByChannelTypeAndTransportChatId("telegram", "100#thread:55")).thenReturn(List.of());
+        when(sessionPort.getOrCreate(anyString(), anyString())).thenAnswer(invocation -> AgentSession.builder()
+                .id(invocation.getArgument(0) + ":" + invocation.getArgument(1))
+                .channelType(invocation.getArgument(0))
+                .chatId(invocation.getArgument(1))
+                .metadata(new HashMap<>())
+                .build());
+
+        String conversation = service.resolveActiveConversationKey("100#thread:55");
+
+        assertTrue(conversation.length() >= 8);
+        verify(pointerService).setActiveConversationKey("telegram|100#thread:55", conversation);
+        verify(sessionPort).listByChannelTypeAndTransportChatId("telegram", "100#thread:55");
+    }
+
     private AgentSession buildTransportSession(String conversationKey, String transportChatId, Instant updatedAt) {
         return AgentSession.builder()
                 .id("telegram:" + conversationKey)

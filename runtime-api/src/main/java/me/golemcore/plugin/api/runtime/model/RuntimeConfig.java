@@ -54,6 +54,26 @@ public class RuntimeConfig {
         private String authMode = "invite_only";
 
         @Builder.Default
+        private String transportMode = "polling";
+
+        private String webhookSecretToken;
+
+        @Builder.Default
+        private String conversationScope = "chat";
+
+        @Builder.Default
+        private Boolean aggregateIncomingMessages = true;
+
+        @Builder.Default
+        private Integer aggregationDelayMs = 500;
+
+        @Builder.Default
+        private Boolean mergeForwardedMessages = true;
+
+        @Builder.Default
+        private Boolean mergeSequentialFragments = true;
+
+        @Builder.Default
         private List<String> allowedUsers = new ArrayList<>();
 
         @Builder.Default

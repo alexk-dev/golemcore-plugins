@@ -119,6 +119,23 @@ class TelegramMenuHandlerTest {
         assertFalse(keyboard.getKeyboard().isEmpty());
     }
 
+    @Test
+    void shouldSendMainMenuBackToThreadWhenTransportScoped() throws Exception {
+        when(telegramSessionService.resolveActiveConversationKey("100#thread:55")).thenReturn("conv-thread");
+        when(telegramSessionService.listRecentSessions("100#thread:55", 5)).thenReturn(List.of(
+                AgentSession.builder().id("telegram:conv-thread").channelType("telegram").chatId("conv-thread")
+                        .messages(List.of()).build()));
+        when(telegramClient.execute(any(SendMessage.class)))
+                .thenReturn(mock(org.telegram.telegrambots.meta.api.objects.message.Message.class));
+
+        handler.sendMainMenu("100#thread:55");
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        assertEquals("100", captor.getValue().getChatId());
+        assertEquals(55, captor.getValue().getMessageThreadId());
+    }
+
     // ==================== Tier sub-menu ====================
 
     @Test
