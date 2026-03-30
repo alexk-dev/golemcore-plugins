@@ -134,6 +134,11 @@ jobs:
               export "$key"
             done < "$release_output"
 
+            if [[ "${skipped_existing_package:-false}" == "true" ]]; then
+              echo "Skipping ${plugin_id}: ${artifact_id}:${version} is already present in GitHub Packages."
+              continue
+            fi
+
             mvn -B -ntp org.apache.maven.plugins:maven-deploy-plugin:3.1.4:deploy-file \
               -DrepositoryId=github \
               -Durl="https://maven.pkg.github.com/${GITHUB_REPOSITORY}" \
