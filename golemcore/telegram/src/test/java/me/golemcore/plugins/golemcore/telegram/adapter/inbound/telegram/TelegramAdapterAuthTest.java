@@ -54,7 +54,9 @@ class TelegramAdapterAuthTest {
         when(runtimeConfigService.getTelegramToken()).thenReturn("test-token");
         when(runtimeConfigService.getTelegramAllowedUsers()).thenReturn(List.of());
         RuntimeConfig.TelegramConfig telegramConfig = RuntimeConfig.TelegramConfig.builder()
-                .authMode("invite_only").build();
+                .authMode("invite_only")
+                .aggregateIncomingMessages(false)
+                .build();
         RuntimeConfig runtimeConfig = RuntimeConfig.builder().telegram(telegramConfig).build();
         when(runtimeConfigService.getRuntimeConfig()).thenReturn(runtimeConfig);
         TelegramSessionService telegramSessionService = mock(TelegramSessionService.class);

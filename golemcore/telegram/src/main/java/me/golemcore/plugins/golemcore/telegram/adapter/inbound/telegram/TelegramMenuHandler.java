@@ -31,6 +31,7 @@ import me.golemcore.plugin.api.runtime.UserPreferencesService;
 import me.golemcore.plugin.api.runtime.i18n.MessageService;
 import me.golemcore.plugin.api.extension.port.inbound.CommandPort;
 import me.golemcore.plugins.golemcore.telegram.support.SessionIdentitySupport;
+import me.golemcore.plugins.golemcore.telegram.support.TelegramTransportSupport;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
@@ -172,12 +173,16 @@ public class TelegramMenuHandler {
             return;
         }
         try {
-            SendMessage message = SendMessage.builder()
-                    .chatId(chatId)
+            SendMessage.SendMessageBuilder<?, ?> builder = SendMessage.builder()
+                    .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                     .text(buildMainMenuText(chatId))
                     .parseMode("HTML")
-                    .replyMarkup(buildMainMenuKeyboard(chatId))
-                    .build();
+                    .replyMarkup(buildMainMenuKeyboard(chatId));
+            Integer threadId = TelegramTransportSupport.resolveThreadId(chatId);
+            if (threadId != null) {
+                builder.messageThreadId(threadId);
+            }
+            SendMessage message = builder.build();
             client.execute(message);
             log.debug("[Menu] Sent main menu to chat: {}", chatId);
         } catch (Exception e) {
@@ -195,12 +200,16 @@ public class TelegramMenuHandler {
             return;
         }
         try {
-            SendMessage message = SendMessage.builder()
-                    .chatId(chatId)
+            SendMessage.SendMessageBuilder<?, ?> builder = SendMessage.builder()
+                    .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                     .text(buildSessionsMenuText(chatId))
                     .parseMode("HTML")
-                    .replyMarkup(buildSessionsMenuKeyboard(chatId))
-                    .build();
+                    .replyMarkup(buildSessionsMenuKeyboard(chatId));
+            Integer threadId = TelegramTransportSupport.resolveThreadId(chatId);
+            if (threadId != null) {
+                builder.messageThreadId(threadId);
+            }
+            SendMessage message = builder.build();
             client.execute(message);
             log.debug("[Menu] Sent sessions menu to chat: {}", chatId);
         } catch (Exception e) {
@@ -603,7 +612,7 @@ public class TelegramMenuHandler {
         }
         try {
             DeleteMessage delete = DeleteMessage.builder()
-                    .chatId(chatId)
+                    .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                     .messageId(messageId)
                     .build();
             client.execute(delete);
@@ -611,7 +620,7 @@ public class TelegramMenuHandler {
             log.debug("[Menu] Cannot delete message, clearing keyboard instead", e);
             try {
                 EditMessageText edit = EditMessageText.builder()
-                        .chatId(chatId)
+                        .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                         .messageId(messageId)
                         .text(msg("menu.title"))
                         .build();
@@ -642,7 +651,7 @@ public class TelegramMenuHandler {
         }
         try {
             EditMessageText edit = EditMessageText.builder()
-                    .chatId(chatId)
+                    .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                     .messageId(messageId)
                     .text(text)
                     .parseMode("HTML")
@@ -661,11 +670,15 @@ public class TelegramMenuHandler {
         }
         try {
             String formatted = TelegramHtmlFormatter.format(text);
-            SendMessage message = SendMessage.builder()
-                    .chatId(chatId)
+            SendMessage.SendMessageBuilder<?, ?> builder = SendMessage.builder()
+                    .chatId(TelegramTransportSupport.resolveRawChatId(chatId))
                     .text(formatted)
-                    .parseMode("HTML")
-                    .build();
+                    .parseMode("HTML");
+            Integer threadId = TelegramTransportSupport.resolveThreadId(chatId);
+            if (threadId != null) {
+                builder.messageThreadId(threadId);
+            }
+            SendMessage message = builder.build();
             client.execute(message);
         } catch (Exception e) {
             log.error("[Menu] Failed to send separate message", e);

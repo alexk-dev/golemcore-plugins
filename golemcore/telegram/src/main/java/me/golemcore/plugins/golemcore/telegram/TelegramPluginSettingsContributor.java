@@ -1,20 +1,20 @@
 package me.golemcore.plugins.golemcore.telegram;
 
 import lombok.RequiredArgsConstructor;
-import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
-import me.golemcore.plugin.api.runtime.model.Secret;
-import me.golemcore.plugin.api.extension.model.TelegramRestartEvent;
-import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugin.api.extension.spi.PluginActionResult;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsAction;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsBlock;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsCatalogItem;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsContributor;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsField;
+import me.golemcore.plugin.api.extension.spi.PluginSettingsFieldOption;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsSection;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsTableColumn;
 import me.golemcore.plugin.api.extension.spi.PluginSettingsTableRow;
-import org.springframework.context.ApplicationEventPublisher;
+import me.golemcore.plugin.api.runtime.RuntimeConfigService;
+import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
+import me.golemcore.plugin.api.runtime.model.Secret;
+import me.golemcore.plugins.golemcore.telegram.adapter.inbound.telegram.TelegramTransportReconcileService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -32,9 +32,10 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
     private static final String ACTION_RESTART_TELEGRAM = "restart-telegram";
     private static final String ACTION_REVOKE_INVITE = "revoke-invite";
     private static final String ACTION_REMOVE_ALLOWED_USER = "remove-allowed-user";
+    private static final String WEBHOOK_URL = "/api/telegram/webhook";
 
     private final RuntimeConfigService runtimeConfigService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final TelegramTransportReconcileService reconcileService;
 
     @Override
     public String getPluginId() {
@@ -49,7 +50,7 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
                 .provider("golemcore")
                 .sectionKey(SECTION_KEY)
                 .title("Telegram")
-                .description("Bot token, invite onboarding, invited user access, and Telegram voice behavior.")
+                .description("Bot token, transport mode, invite onboarding, and Telegram voice behavior.")
                 .blockKey("core")
                 .blockTitle("Core")
                 .blockDescription("Main runtime settings and access configuration")
@@ -65,9 +66,8 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
         RuntimeConfig.VoiceConfig voice = config.getVoice();
         return PluginSettingsSection.builder()
                 .title("Telegram")
-                .description(
-                        "Configure the Telegram channel and finish invite-based onboarding from the plugin itself.")
-                .fields(buildFields())
+                .description("Configure transport, onboarding, and Telegram-specific channel behavior.")
+                .fields(buildFields(telegram))
                 .values(buildValues(telegram, voice))
                 .blocks(buildBlocks(telegram))
                 .actions(buildActions(telegram))
@@ -89,11 +89,19 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
             telegram.setToken(Secret.of(token));
         }
 
+        telegram.setTransportMode(readTelegramTransportMode(values));
+        telegram.setWebhookSecretToken(normalizeOptionalString(readString(values, "webhookSecretToken")));
+        telegram.setConversationScope(readConversationScope(values));
+        telegram.setAggregateIncomingMessages(readBoolean(values, "aggregateIncomingMessages"));
+        telegram.setAggregationDelayMs(readInteger(values, "aggregationDelayMs", 500, 0, 60_000));
+        telegram.setMergeForwardedMessages(readBoolean(values, "mergeForwardedMessages"));
+        telegram.setMergeSequentialFragments(readBoolean(values, "mergeSequentialFragments"));
+
         voice.setTelegramRespondWithVoice(readBoolean(values, "telegramRespondWithVoice"));
         voice.setTelegramTranscribeIncoming(readBoolean(values, "telegramTranscribeIncoming"));
 
         runtimeConfigService.updateRuntimeConfig(config);
-        eventPublisher.publishEvent(new TelegramRestartEvent());
+        reconcileService.requestReconcile();
         return getSection(sectionKey);
     }
 
@@ -103,10 +111,10 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
         return switch (actionId) {
         case ACTION_GENERATE_INVITE -> generateInvite();
         case ACTION_RESTART_TELEGRAM -> {
-            eventPublisher.publishEvent(new TelegramRestartEvent());
+            reconcileService.requestReconcile();
             yield PluginActionResult.builder()
                     .status("ok")
-                    .message("Telegram restart requested.")
+                    .message("Telegram reconcile requested.")
                     .build();
         }
         case ACTION_REVOKE_INVITE -> revokeInvite(payload);
@@ -115,42 +123,114 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
         };
     }
 
-    private List<PluginSettingsField> buildFields() {
-        return List.of(
-                PluginSettingsField.builder()
-                        .key("enabled")
-                        .type("boolean")
-                        .label("Enable Telegram")
-                        .description("Start Telegram long polling when a valid bot token is configured.")
-                        .build(),
-                PluginSettingsField.builder()
-                        .key("token")
-                        .type("secret")
-                        .label("Bot Token")
-                        .description("Telegram Bot API token from @BotFather. Leave blank to keep the current secret.")
-                        .placeholder("123456:ABC-DEF...")
-                        .build(),
-                PluginSettingsField.builder()
-                        .key("telegramRespondWithVoice")
-                        .type("boolean")
-                        .label("Respond With Voice")
-                        .description("Allow Telegram responses to include generated voice messages when supported.")
-                        .build(),
-                PluginSettingsField.builder()
-                        .key("telegramTranscribeIncoming")
-                        .type("boolean")
-                        .label("Transcribe Incoming Voice")
-                        .description(
-                                "Automatically transcribe incoming Telegram voice messages before sending them into the agent loop.")
-                        .build());
+    private List<PluginSettingsField> buildFields(RuntimeConfig.TelegramConfig telegram) {
+        List<PluginSettingsField> fields = new ArrayList<>();
+        fields.add(PluginSettingsField.builder()
+                .key("enabled")
+                .type("boolean")
+                .label("Enable Telegram")
+                .description("Enable the Telegram channel when a valid bot token is configured.")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("token")
+                .type("secret")
+                .label("Bot Token")
+                .description("Telegram Bot API token from @BotFather. Leave blank to keep the current secret.")
+                .placeholder("123456:ABC-DEF...")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("transportMode")
+                .type("select")
+                .label("Transport Mode")
+                .description("Use polling for local simplicity or webhook mode for push-based delivery.")
+                .options(List.of(
+                        PluginSettingsFieldOption.builder().value("polling").label("Polling").build(),
+                        PluginSettingsFieldOption.builder().value("webhook").label("Webhook").build()))
+                .build());
+        if ("webhook".equalsIgnoreCase(telegram.getTransportMode())) {
+            fields.add(PluginSettingsField.builder()
+                    .key("webhookUrl")
+                    .type("url")
+                    .label("Webhook URL")
+                    .description("Telegram should POST updates to this endpoint when webhook mode is enabled.")
+                    .readOnly(true)
+                    .copyable(true)
+                    .build());
+        }
+        fields.add(PluginSettingsField.builder()
+                .key("webhookSecretToken")
+                .type("text")
+                .label("Webhook Secret Token")
+                .description(
+                        "Optional Telegram webhook secret token. Stored as a normal runtime string and masked in the UI.")
+                .masked(true)
+                .placeholder("telegram-webhook-secret")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("conversationScope")
+                .type("select")
+                .label("Conversation Scope")
+                .description("Route Telegram messages into one session per chat or one session per thread/topic.")
+                .options(List.of(
+                        PluginSettingsFieldOption.builder().value("chat").label("Per Chat").build(),
+                        PluginSettingsFieldOption.builder().value("thread").label("Per Thread").build()))
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("aggregateIncomingMessages")
+                .type("boolean")
+                .label("Aggregate Incoming Messages")
+                .description("Buffer short bursts of Telegram messages before handing them to the agent loop.")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("aggregationDelayMs")
+                .type("number")
+                .label("Aggregation Delay (ms)")
+                .description("How long to wait before flushing buffered Telegram input into a single agent message.")
+                .min(0d)
+                .max(60_000d)
+                .step(50d)
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("mergeForwardedMessages")
+                .type("boolean")
+                .label("Merge Forwarded Messages")
+                .description("Combine forwarded batches into one logical input before entering the loop.")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("mergeSequentialFragments")
+                .type("boolean")
+                .label("Merge Sequential Fragments")
+                .description("Combine short sequential Telegram fragments into one logical input.")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("telegramRespondWithVoice")
+                .type("boolean")
+                .label("Respond With Voice")
+                .description("Allow Telegram responses to include generated voice messages when supported.")
+                .build());
+        fields.add(PluginSettingsField.builder()
+                .key("telegramTranscribeIncoming")
+                .type("boolean")
+                .label("Transcribe Incoming Voice")
+                .description(
+                        "Automatically transcribe incoming Telegram voice messages before sending them into the agent loop.")
+                .build());
+        return fields;
     }
 
-    private Map<String, Object> buildValues(
-            RuntimeConfig.TelegramConfig telegram,
-            RuntimeConfig.VoiceConfig voice) {
+    private Map<String, Object> buildValues(RuntimeConfig.TelegramConfig telegram, RuntimeConfig.VoiceConfig voice) {
         Map<String, Object> values = new LinkedHashMap<>();
         values.put("enabled", Boolean.TRUE.equals(telegram.getEnabled()));
         values.put("token", "");
+        values.put("transportMode", safeString(telegram.getTransportMode(), "polling"));
+        values.put("webhookSecretToken", safeString(telegram.getWebhookSecretToken(), ""));
+        values.put("webhookUrl", WEBHOOK_URL);
+        values.put("conversationScope", safeString(telegram.getConversationScope(), "chat"));
+        values.put("aggregateIncomingMessages", Boolean.TRUE.equals(telegram.getAggregateIncomingMessages()));
+        values.put("aggregationDelayMs",
+                telegram.getAggregationDelayMs() != null ? telegram.getAggregationDelayMs() : 500);
+        values.put("mergeForwardedMessages", Boolean.TRUE.equals(telegram.getMergeForwardedMessages()));
+        values.put("mergeSequentialFragments", Boolean.TRUE.equals(telegram.getMergeSequentialFragments()));
         values.put("telegramRespondWithVoice", Boolean.TRUE.equals(voice.getTelegramRespondWithVoice()));
         values.put("telegramTranscribeIncoming", Boolean.TRUE.equals(voice.getTelegramTranscribeIncoming()));
         return values;
@@ -310,9 +390,52 @@ public class TelegramPluginSettingsContributor implements PluginSettingsContribu
         return false;
     }
 
+    private Integer readInteger(Map<String, Object> values, String key, int defaultValue, int min, int max) {
+        Object value = values.get(key);
+        int parsed = defaultValue;
+        if (value instanceof Number number) {
+            parsed = number.intValue();
+        } else if (value instanceof String str && !str.isBlank()) {
+            try {
+                parsed = Integer.parseInt(str.trim());
+            } catch (NumberFormatException ignored) {
+                parsed = defaultValue;
+            }
+        }
+        return Math.max(min, Math.min(max, parsed));
+    }
+
     private String readString(Map<String, Object> values, String key) {
         Object value = values.get(key);
         return value != null ? String.valueOf(value) : null;
+    }
+
+    private String readTelegramTransportMode(Map<String, Object> values) {
+        String transportMode = normalizeOptionalString(readString(values, "transportMode"));
+        if ("webhook".equalsIgnoreCase(transportMode)) {
+            return "webhook";
+        }
+        return "polling";
+    }
+
+    private String readConversationScope(Map<String, Object> values) {
+        String conversationScope = normalizeOptionalString(readString(values, "conversationScope"));
+        if ("thread".equalsIgnoreCase(conversationScope)) {
+            return "thread";
+        }
+        return "chat";
+    }
+
+    private String normalizeOptionalString(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String safeString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private void requireSection(String sectionKey) {

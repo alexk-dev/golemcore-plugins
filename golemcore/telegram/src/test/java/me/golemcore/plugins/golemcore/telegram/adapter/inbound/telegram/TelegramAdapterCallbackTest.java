@@ -1,6 +1,7 @@
 package me.golemcore.plugins.golemcore.telegram.adapter.inbound.telegram;
 
 import me.golemcore.plugin.api.extension.model.ConfirmationCallbackEvent;
+import me.golemcore.plugin.api.extension.model.Message;
 import me.golemcore.plugin.api.extension.model.PlanApprovalCallbackEvent;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
 import me.golemcore.plugins.golemcore.telegram.service.TelegramSessionService;
@@ -13,9 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,8 +38,11 @@ class TelegramAdapterCallbackTest {
     private TelegramAdapter adapter;
     private ApplicationEventPublisher eventPublisher;
     private TelegramClient telegramClient;
+    private TelegramSessionService telegramSessionService;
+    private Consumer<Message> messageHandler;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         eventPublisher = mock(ApplicationEventPublisher.class);
         telegramClient = mock(TelegramClient.class);
@@ -42,10 +50,14 @@ class TelegramAdapterCallbackTest {
         RuntimeConfigService runtimeConfigService = mock(RuntimeConfigService.class);
         when(runtimeConfigService.isTelegramEnabled()).thenReturn(true);
         when(runtimeConfigService.getTelegramToken()).thenReturn("test-token");
+        AllowlistValidator allowlistValidator = mock(AllowlistValidator.class);
+        when(allowlistValidator.isAllowed("telegram", "123")).thenReturn(true);
+        telegramSessionService = mock(TelegramSessionService.class);
+        when(telegramSessionService.resolveActiveConversationKey(CHAT_ID_100)).thenReturn("conv-active");
 
         adapter = new TelegramAdapter(
                 runtimeConfigService,
-                mock(AllowlistValidator.class),
+                allowlistValidator,
                 eventPublisher,
                 mock(TelegramBotsLongPollingApplication.class),
                 mock(UserPreferencesService.class),
@@ -53,12 +65,15 @@ class TelegramAdapterCallbackTest {
                 new TestObjectProvider<>(mock(CommandPort.class)),
                 mock(TelegramVoiceHandler.class),
                 mock(TelegramMenuHandler.class),
-                mock(TelegramSessionService.class));
+                telegramSessionService);
         adapter.setTelegramClient(telegramClient);
+
+        messageHandler = mock(Consumer.class);
+        adapter.onMessage(messageHandler);
     }
 
     @Test
-    void shouldPublishConfirmationEventOnApproval() {
+    void shouldPublishConfirmationEventOnApproval() throws Exception {
         Update update = createCallbackUpdate(CHAT_ID_100, 42, "confirm:abc123:yes");
 
         adapter.consume(update);
@@ -71,6 +86,7 @@ class TelegramAdapterCallbackTest {
         assertTrue(event.approved());
         assertEquals(CHAT_ID_100, event.chatId());
         assertEquals("42", event.messageId());
+        verify(telegramClient).execute(any(AnswerCallbackQuery.class));
     }
 
     @Test
@@ -145,7 +161,7 @@ class TelegramAdapterCallbackTest {
     // ===== Plan callbacks =====
 
     @Test
-    void shouldPublishPlanApprovalEvent() {
+    void shouldPublishPlanApprovalEvent() throws Exception {
         Update update = createCallbackUpdate(CHAT_ID_100, 42, "plan:plan-abc:approve");
 
         adapter.consume(update);
@@ -158,6 +174,7 @@ class TelegramAdapterCallbackTest {
         assertEquals("approve", event.action());
         assertEquals(CHAT_ID_100, event.chatId());
         assertEquals("42", event.messageId());
+        verify(telegramClient).execute(any(AnswerCallbackQuery.class));
     }
 
     @Test
@@ -192,13 +209,37 @@ class TelegramAdapterCallbackTest {
         verify(eventPublisher, never()).publishEvent(any(PlanApprovalCallbackEvent.class));
     }
 
+    @Test
+    void shouldConvertGenericCallbackIntoInboundMessage() throws Exception {
+        Update update = createCallbackUpdate(CHAT_ID_100, 42, "task:approve:123");
+
+        adapter.consume(update);
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageHandler).accept(captor.capture());
+        Message message = captor.getValue();
+
+        assertEquals("conv-active", message.getChatId());
+        assertEquals("user", message.getRole());
+        assertEquals("123", message.getSenderId());
+        assertEquals("[Telegram button clicked]\nCallback data: task:approve:123", message.getContent());
+        assertEquals(true, message.getMetadata().get("telegram.isInlineCallback"));
+        assertEquals("task:approve:123", message.getMetadata().get("telegram.callbackData"));
+        assertEquals(CHAT_ID_100, message.getMetadata().get("session.transport.chat.id"));
+        verify(telegramClient).execute(any(AnswerCallbackQuery.class));
+    }
+
     private Update createCallbackUpdate(String chatId, int messageId, String data) {
+        User from = mock(User.class);
+        when(from.getId()).thenReturn(123L);
         org.telegram.telegrambots.meta.api.objects.message.Message message = mock(
                 org.telegram.telegrambots.meta.api.objects.message.Message.class);
         when(message.getChatId()).thenReturn(Long.parseLong(chatId));
         when(message.getMessageId()).thenReturn(messageId);
 
         CallbackQuery callback = mock(CallbackQuery.class);
+        when(callback.getId()).thenReturn("callback-1");
+        when(callback.getFrom()).thenReturn(from);
         when(callback.getMessage()).thenReturn(message);
         when(callback.getData()).thenReturn(data);
 

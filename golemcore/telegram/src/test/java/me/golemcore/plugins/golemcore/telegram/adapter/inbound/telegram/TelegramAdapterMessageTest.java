@@ -20,10 +20,13 @@ import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVoice;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -89,6 +92,41 @@ class TelegramAdapterMessageTest {
     }
 
     @Test
+    void shouldSendInlineKeyboardFromHints() throws Exception {
+        when(telegramClient.execute(any(SendMessage.class)))
+                .thenReturn(mock(org.telegram.telegrambots.meta.api.objects.message.Message.class));
+
+        adapter.sendMessage(
+                CHAT_ID,
+                "Choose",
+                Map.of("telegram.inlineKeyboard", List.of(
+                        List.of(
+                                Map.of("text", "Approve", "callbackData", "task:approve:1"),
+                                Map.of("text", "Cancel", "callbackData", "task:cancel:1")))))
+                .get();
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        InlineKeyboardMarkup markup = (InlineKeyboardMarkup) captor.getValue().getReplyMarkup();
+        assertEquals("Approve", markup.getKeyboard().get(0).get(0).getText());
+        assertEquals("task:approve:1", markup.getKeyboard().get(0).get(0).getCallbackData());
+        assertEquals("Cancel", markup.getKeyboard().get(0).get(1).getText());
+    }
+
+    @Test
+    void shouldSendThreadScopedMessageBackToSameTopic() throws Exception {
+        when(telegramClient.execute(any(SendMessage.class)))
+                .thenReturn(mock(org.telegram.telegrambots.meta.api.objects.message.Message.class));
+
+        adapter.sendMessage("123#thread:55", "Hello topic").get();
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        assertEquals("123", captor.getValue().getChatId());
+        assertEquals(55, captor.getValue().getMessageThreadId());
+    }
+
+    @Test
     void shouldSendLongMessageInChunks() throws Exception {
         when(telegramClient.execute(any(SendMessage.class)))
                 .thenReturn(mock(org.telegram.telegrambots.meta.api.objects.message.Message.class));
@@ -111,7 +149,7 @@ class TelegramAdapterMessageTest {
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
                 ProgressUpdateType.INTENT,
                 "Working on: checking the current state before making changes.",
-                java.util.Map.of())).get();
+                Map.of())).get();
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
@@ -128,11 +166,11 @@ class TelegramAdapterMessageTest {
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
                 ProgressUpdateType.INTENT,
                 "Working on: checking the current state before making changes.",
-                java.util.Map.of())).get();
+                Map.of())).get();
         adapter.sendProgressUpdate(CHAT_ID, new ProgressUpdate(
                 ProgressUpdateType.SUMMARY,
                 "Reviewed the repo and grouped the latest shell runs.",
-                java.util.Map.of())).get();
+                Map.of())).get();
 
         verify(telegramClient, atLeast(2)).execute(any(SendMessage.class));
     }
@@ -149,6 +187,19 @@ class TelegramAdapterMessageTest {
         future.get();
 
         verify(telegramClient).execute(any(SendPhoto.class));
+    }
+
+    @Test
+    void shouldSendThreadScopedPhotoBackToSameTopic() throws Exception {
+        when(telegramClient.execute(any(SendPhoto.class)))
+                .thenReturn(mock(org.telegram.telegrambots.meta.api.objects.message.Message.class));
+
+        adapter.sendPhoto("123#thread:55", new byte[] { 1, 2, 3 }, "photo.png", "A caption").get();
+
+        ArgumentCaptor<SendPhoto> captor = ArgumentCaptor.forClass(SendPhoto.class);
+        verify(telegramClient).execute(captor.capture());
+        assertEquals("123", captor.getValue().getChatId());
+        assertEquals(55, captor.getValue().getMessageThreadId());
     }
 
     @Test

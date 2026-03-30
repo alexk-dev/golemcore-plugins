@@ -3,6 +3,7 @@ package me.golemcore.plugins.golemcore.telegram.adapter.inbound.telegram;
 import me.golemcore.plugin.api.extension.model.Message;
 import me.golemcore.plugin.api.extension.model.ContextAttributes;
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
+import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
 import me.golemcore.plugins.golemcore.telegram.service.TelegramSessionService;
 import me.golemcore.plugin.api.runtime.UserPreferencesService;
 import me.golemcore.plugin.api.runtime.i18n.MessageService;
@@ -14,9 +15,13 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOrigin;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginChannel;
+import org.telegram.telegrambots.meta.api.objects.messageorigin.MessageOriginUser;
 import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -53,6 +58,8 @@ class TelegramAdapterHandleMessageTest {
     private ApplicationEventPublisher eventPublisher;
     private TelegramMenuHandler menuHandler;
     private TelegramSessionService telegramSessionService;
+    private RuntimeConfigService runtimeConfigService;
+    private RuntimeConfig runtimeConfig;
     private Consumer<Message> messageHandler;
 
     @BeforeEach
@@ -68,10 +75,22 @@ class TelegramAdapterHandleMessageTest {
         messageService = mock(MessageService.class);
         menuHandler = mock(TelegramMenuHandler.class);
 
-        RuntimeConfigService runtimeConfigService = mock(RuntimeConfigService.class);
+        runtimeConfigService = mock(RuntimeConfigService.class);
+        runtimeConfig = RuntimeConfig.builder()
+                .telegram(RuntimeConfig.TelegramConfig.builder()
+                        .enabled(true)
+                        .transportMode("polling")
+                        .conversationScope("chat")
+                        .aggregateIncomingMessages(false)
+                        .aggregationDelayMs(25)
+                        .mergeForwardedMessages(true)
+                        .mergeSequentialFragments(true)
+                        .build())
+                .build();
         when(runtimeConfigService.isTelegramEnabled()).thenReturn(true);
         when(runtimeConfigService.getTelegramToken()).thenReturn("test-token");
         when(runtimeConfigService.isTelegramTranscribeIncomingEnabled()).thenReturn(false);
+        when(runtimeConfigService.getRuntimeConfig()).thenReturn(runtimeConfig);
         telegramSessionService = mock(TelegramSessionService.class);
         when(telegramSessionService.resolveActiveConversationKey(anyString()))
                 .thenReturn("conv-active");
@@ -244,6 +263,90 @@ class TelegramAdapterHandleMessageTest {
     }
 
     @Test
+    void shouldUseScopedTransportChatIdForThreadScopedConversation() {
+        runtimeConfig.getTelegram().setConversationScope("thread");
+        when(telegramSessionService.resolveActiveConversationKey("100#thread:55"))
+                .thenReturn("conv-thread");
+
+        Update update = createTextUpdate(123L, 100L, 1, 55, "Topic hello", null);
+        adapter.consume(update);
+
+        verify(telegramSessionService).resolveActiveConversationKey("100#thread:55");
+        Message msg = captureInboundMessage();
+        assertEquals("conv-thread", msg.getChatId());
+        assertEquals("100#thread:55", msg.getMetadata().get(ContextAttributes.TRANSPORT_CHAT_ID));
+        assertEquals("100", msg.getMetadata().get("telegram.rawChatId"));
+        assertEquals(55, msg.getMetadata().get("telegram.threadId"));
+    }
+
+    @Test
+    void shouldAggregateSequentialMessagesIntoSingleInboundMessage() {
+        runtimeConfig.getTelegram().setAggregateIncomingMessages(true);
+        runtimeConfig.getTelegram().setAggregationDelayMs(40);
+
+        adapter.consume(createTextUpdate(123L, 100L, 1, null, "First chunk", null));
+        adapter.consume(createTextUpdate(123L, 100L, 2, null, "Second chunk", null));
+
+        Message msg = captureInboundMessageWithTimeout();
+        assertEquals("First chunk\n\nSecond chunk", msg.getContent());
+        assertEquals(true, msg.getMetadata().get("telegram.aggregated"));
+        assertEquals(2, msg.getMetadata().get("telegram.aggregatedCount"));
+        assertEquals(List.of("1", "2"), msg.getMetadata().get("telegram.messageIds"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldIncludeForwardMetadataForForwardedUserMessage() {
+        User originUser = createUser(777L, "Alice", "alice");
+        MessageOriginUser forwardOrigin = new MessageOriginUser(MessageOrigin.USER_TYPE, 1_711_800_000, originUser);
+
+        Update update = createTextUpdate(123L, 100L, 7, null, "Forwarded body", forwardOrigin);
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        assertEquals(true, msg.getMetadata().get("telegram.isForwarded"));
+        List<Map<String, Object>> forwardedItems = (List<Map<String, Object>>) msg.getMetadata()
+                .get("telegram.forwardedItems");
+        assertEquals(1, forwardedItems.size());
+        assertEquals("user", forwardedItems.get(0).get("originType"));
+        assertEquals("777", forwardedItems.get(0).get("fromUserId"));
+        assertEquals("alice", forwardedItems.get(0).get("fromUsername"));
+        assertEquals("Alice", forwardedItems.get(0).get("fromDisplayName"));
+        assertEquals("1711800000", forwardedItems.get(0).get("originalDate"));
+        assertEquals(true, msg.getContent().contains("[Forwarded message]"));
+        assertEquals(true, msg.getContent().contains("From: Alice (@alice)"));
+        assertEquals(true, msg.getContent().contains("Forwarded body"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldIncludeChannelOriginForForwardedChannelMessage() {
+        Chat originChat = mock(Chat.class);
+        when(originChat.getId()).thenReturn(-100L);
+        when(originChat.getTitle()).thenReturn("Build Logs");
+        when(originChat.getUserName()).thenReturn("build_logs");
+        MessageOriginChannel forwardOrigin = new MessageOriginChannel(
+                MessageOrigin.CHANNEL_TYPE,
+                1_711_800_001,
+                originChat,
+                88,
+                null);
+
+        Update update = createTextUpdate(123L, 100L, 8, null, "Channel body", forwardOrigin);
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        List<Map<String, Object>> forwardedItems = (List<Map<String, Object>>) msg.getMetadata()
+                .get("telegram.forwardedItems");
+        assertEquals("channel", forwardedItems.get(0).get("originType"));
+        assertEquals("-100", forwardedItems.get(0).get("fromChatId"));
+        assertEquals("Build Logs", forwardedItems.get(0).get("fromChatTitle"));
+        assertEquals("build_logs", forwardedItems.get(0).get("fromChatUsername"));
+        assertEquals("88", forwardedItems.get(0).get("originalMessageId"));
+        assertEquals(true, msg.getContent().contains("Source: Channel \"Build Logs\" (@build_logs)"));
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void shouldAttachPhotoAsImageAttachment() throws Exception {
         adapter = spy(adapter);
@@ -364,16 +467,32 @@ class TelegramAdapterHandleMessageTest {
         return captor.getValue();
     }
 
+    private Message captureInboundMessageWithTimeout() {
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageHandler, timeout(2000)).accept(captor.capture());
+        return captor.getValue();
+    }
+
     private Update createTextUpdate(long userId, long chatId, String text) {
+        return createTextUpdate(userId, chatId, 1, null, text, null);
+    }
+
+    private Update createTextUpdate(long userId, long chatId, int messageId, Integer messageThreadId, String text,
+            MessageOrigin forwardOrigin) {
         User user = createUser(userId);
         org.telegram.telegrambots.meta.api.objects.message.Message telegramMsg = mock(
                 org.telegram.telegrambots.meta.api.objects.message.Message.class);
         when(telegramMsg.getChatId()).thenReturn(chatId);
         when(telegramMsg.getFrom()).thenReturn(user);
-        when(telegramMsg.getMessageId()).thenReturn(1);
+        when(telegramMsg.getMessageId()).thenReturn(messageId);
         when(telegramMsg.hasText()).thenReturn(true);
         when(telegramMsg.getText()).thenReturn(text);
         when(telegramMsg.hasVoice()).thenReturn(false);
+        when(telegramMsg.getMessageThreadId()).thenReturn(messageThreadId);
+        when(telegramMsg.isTopicMessage()).thenReturn(messageThreadId != null);
+        when(telegramMsg.getMediaGroupId()).thenReturn(null);
+        when(telegramMsg.getForwardOrigin()).thenReturn(forwardOrigin);
+        when(telegramMsg.getForwardDate()).thenReturn(forwardOrigin == null ? null : 1_711_800_000);
 
         Update update = mock(Update.class);
         when(update.hasMessage()).thenReturn(true);
@@ -435,8 +554,14 @@ class TelegramAdapterHandleMessageTest {
     }
 
     private User createUser(long userId) {
+        return createUser(userId, null, null);
+    }
+
+    private User createUser(long userId, String firstName, String username) {
         User user = mock(User.class);
         when(user.getId()).thenReturn(userId);
+        when(user.getFirstName()).thenReturn(firstName);
+        when(user.getUserName()).thenReturn(username);
         return user;
     }
 }
