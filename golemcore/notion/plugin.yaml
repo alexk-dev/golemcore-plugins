@@ -1,0 +1,12 @@
+id: golemcore/notion
+provider: golemcore
+name: notion
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.notion.NotionPluginBootstrap
+description: Notion vault plugin backed by the official Notion HTTP API.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/notion
+license: Apache-2.0
+maintainers:
+  - alexk-dev

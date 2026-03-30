@@ -1,11 +1,11 @@
 id: golemcore/lightrag
-provider: golemcore
-name: lightrag
 version: 1.1.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/lightrag/1.1.0/golemcore-lightrag-plugin-1.1.0.jar"
+publishedAt: "2026-03-30T20:05:51Z"
+sourceCommit: "71737dfd22753f733dd8662ba590a734115f625f"
 entrypoint: me.golemcore.plugins.golemcore.lightrag.LightRagPluginBootstrap
-description: "LightRAG-backed retrieval provider plugin for prompt augmentation and indexing."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/lightrag"
 license: "Apache-2.0"
 maintainers:
