@@ -1280,6 +1280,15 @@ public class TelegramAdapter
         });
     }
 
+    @Override
+    public boolean isVoiceResponseEnabled() {
+        me.golemcore.plugin.api.runtime.model.RuntimeConfig runtimeConfig = runtimeConfigService.getRuntimeConfig();
+        if (runtimeConfig == null || runtimeConfig.getVoice() == null) {
+            return false;
+        }
+        return Boolean.TRUE.equals(runtimeConfig.getVoice().getTelegramRespondWithVoice());
+    }
+
     private void sendAudioFallback(String chatId, byte[] audioData) {
         try {
             String rawChatId = TelegramTransportSupport.resolveRawChatId(chatId);

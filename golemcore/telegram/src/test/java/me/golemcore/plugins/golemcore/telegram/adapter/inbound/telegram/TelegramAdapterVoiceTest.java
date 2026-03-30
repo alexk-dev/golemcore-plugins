@@ -1,6 +1,7 @@
 package me.golemcore.plugins.golemcore.telegram.adapter.inbound.telegram;
 
 import me.golemcore.plugin.api.runtime.RuntimeConfigService;
+import me.golemcore.plugin.api.runtime.model.RuntimeConfig;
 import me.golemcore.plugins.golemcore.telegram.service.TelegramSessionService;
 import me.golemcore.plugin.api.runtime.UserPreferencesService;
 import me.golemcore.plugin.api.runtime.i18n.MessageService;
@@ -20,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -35,14 +37,18 @@ class TelegramAdapterVoiceTest {
 
     private TelegramAdapter adapter;
     private TelegramClient telegramClient;
+    private RuntimeConfigService runtimeConfigService;
 
     @BeforeEach
     void setUp() {
         telegramClient = mock(TelegramClient.class);
 
-        RuntimeConfigService runtimeConfigService = mock(RuntimeConfigService.class);
+        runtimeConfigService = mock(RuntimeConfigService.class);
         when(runtimeConfigService.isTelegramEnabled()).thenReturn(true);
         when(runtimeConfigService.getTelegramToken()).thenReturn("test-token");
+        when(runtimeConfigService.getRuntimeConfig()).thenReturn(RuntimeConfig.builder()
+                .voice(RuntimeConfig.VoiceConfig.builder().build())
+                .build());
         TelegramSessionService telegramSessionService = mock(TelegramSessionService.class);
         when(telegramSessionService.resolveActiveConversationKey(anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -59,6 +65,20 @@ class TelegramAdapterVoiceTest {
                 mock(TelegramMenuHandler.class),
                 telegramSessionService);
         adapter.setTelegramClient(telegramClient);
+    }
+
+    @Test
+    void isVoiceResponseEnabled_returnsFalseByDefault() {
+        assertFalse(adapter.isVoiceResponseEnabled());
+    }
+
+    @Test
+    void isVoiceResponseEnabled_reflectsTelegramSettingsFlag() {
+        when(runtimeConfigService.getRuntimeConfig()).thenReturn(RuntimeConfig.builder()
+                .voice(RuntimeConfig.VoiceConfig.builder().telegramRespondWithVoice(true).build())
+                .build());
+
+        assertTrue(adapter.isVoiceResponseEnabled());
     }
 
     @Test
