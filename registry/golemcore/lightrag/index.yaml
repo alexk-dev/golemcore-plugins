@@ -1,7 +1,8 @@
 id: golemcore/lightrag
 owner: golemcore
 name: lightrag
-latest: 1.0.0
+latest: 1.1.0
 versions:
   - 1.0.0
-source: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/lightrag
+  - 1.1.0
+source: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/lightrag"
