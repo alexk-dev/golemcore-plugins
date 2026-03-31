@@ -1,15 +1,11 @@
 package me.golemcore.plugins.golemcore.notion.support;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import me.golemcore.plugins.golemcore.notion.NotionPluginConfig;
-import me.golemcore.plugins.golemcore.notion.NotionPluginConfigService;
-import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,6 +18,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import me.golemcore.plugins.golemcore.notion.NotionPluginConfig;
+import me.golemcore.plugins.golemcore.notion.NotionPluginConfigService;
+import org.junit.jupiter.api.Test;
 
 class NotionReindexCoordinatorTest {
 

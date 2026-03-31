@@ -1,7 +1,7 @@
 id: golemcore/notion
 provider: golemcore
 name: notion
-version: 1.0.0
+version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
 entrypoint: me.golemcore.plugins.golemcore.notion.NotionPluginBootstrap
