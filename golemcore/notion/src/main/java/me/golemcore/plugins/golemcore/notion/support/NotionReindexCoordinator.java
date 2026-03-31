@@ -4,8 +4,9 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import me.golemcore.plugins.golemcore.notion.NotionPluginConfig;
 import me.golemcore.plugins.golemcore.notion.NotionPluginConfigService;
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronExpression;
+import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -24,33 +25,42 @@ public class NotionReindexCoordinator {
     private final NotionLocalIndexService localIndexService;
     private final NotionRagSyncService ragSyncService;
     private final NotionReindexScheduleResolver scheduleResolver;
-    private ScheduledExecutorService scheduler;
-    private Clock clock;
+    private final ScheduledExecutorService scheduler;
+    private final Clock clock;
 
     private Optional<ScheduledFuture<?>> scheduledFuture = Optional.empty();
 
+    @Autowired
     public NotionReindexCoordinator(
             NotionPluginConfigService configService,
             NotionLocalIndexService localIndexService,
             NotionRagSyncService ragSyncService,
             NotionReindexScheduleResolver scheduleResolver) {
+        this(
+                configService,
+                localIndexService,
+                ragSyncService,
+                scheduleResolver,
+                Executors.newSingleThreadScheduledExecutor(runnable -> {
+                    Thread thread = new Thread(runnable, "notion-reindex");
+                    thread.setDaemon(true);
+                    return thread;
+                }),
+                Clock.systemDefaultZone());
+    }
+
+    NotionReindexCoordinator(
+            NotionPluginConfigService configService,
+            NotionLocalIndexService localIndexService,
+            NotionRagSyncService ragSyncService,
+            NotionReindexScheduleResolver scheduleResolver,
+            ScheduledExecutorService scheduler,
+            Clock clock) {
         this.configService = configService;
         this.localIndexService = localIndexService;
         this.ragSyncService = ragSyncService;
         this.scheduleResolver = scheduleResolver;
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "notion-reindex");
-            thread.setDaemon(true);
-            return thread;
-        });
-        this.clock = Clock.systemDefaultZone();
-    }
-
-    void setSchedulerForTest(ScheduledExecutorService scheduler) {
         this.scheduler = scheduler;
-    }
-
-    void setClockForTest(Clock clock) {
         this.clock = clock;
     }
 
