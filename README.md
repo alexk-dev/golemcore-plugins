@@ -46,6 +46,8 @@ The current `golemcore/*` modules in this repository are:
 | `golemcore/firecrawl` | Firecrawl-backed page scraping plugin for markdown, summary, HTML, and link extraction. |
 | `golemcore/lightrag` | LightRAG-backed retrieval provider plugin for prompt augmentation and indexing. |
 | `golemcore/mail` | IMAP read and SMTP send tool plugin for mailbox integrations. |
+| `golemcore/notion` | Notion vault plugin backed by the official Notion HTTP API. |
+| `golemcore/obsidian` | Obsidian vault plugin backed by obsidian-local-rest-api. |
 | `golemcore/perplexity-sonar` | Perplexity Sonar grounded-answer plugin with configurable model selection and synchronous completions. |
 | `golemcore/pinchtab` | PinchTab browser automation plugin for navigation, snapshots, actions, text extraction, and screenshots. |
 | `golemcore/tavily-search` | Tavily-backed web search tool plugin with configurable search depth and answer generation. |
