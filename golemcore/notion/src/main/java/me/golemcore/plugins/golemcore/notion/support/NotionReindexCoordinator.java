@@ -4,6 +4,7 @@ import me.golemcore.plugins.golemcore.notion.NotionPluginConfig;
 import me.golemcore.plugins.golemcore.notion.NotionPluginConfigService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
 
@@ -29,22 +30,22 @@ public class NotionReindexCoordinator {
 
     private Optional<ScheduledFuture<?>> scheduledFuture = Optional.empty();
 
+    @Autowired
     public NotionReindexCoordinator(
             NotionPluginConfigService configService,
             NotionLocalIndexService localIndexService,
             NotionRagSyncService ragSyncService,
             NotionReindexScheduleResolver scheduleResolver) {
-        this(
-                configService,
-                localIndexService,
-                ragSyncService,
-                scheduleResolver,
-                Executors.newSingleThreadScheduledExecutor(runnable -> {
-                    Thread thread = new Thread(runnable, "notion-reindex");
-                    thread.setDaemon(true);
-                    return thread;
-                }),
-                Clock.systemDefaultZone());
+        this.configService = configService;
+        this.localIndexService = localIndexService;
+        this.ragSyncService = ragSyncService;
+        this.scheduleResolver = scheduleResolver;
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "notion-reindex");
+            thread.setDaemon(true);
+            return thread;
+        });
+        this.clock = Clock.systemDefaultZone();
     }
 
     NotionReindexCoordinator(
