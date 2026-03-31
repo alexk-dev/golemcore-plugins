@@ -64,7 +64,8 @@ class TelegramAdapterRetryTest {
                 new TestObjectProvider<>(mock(CommandPort.class)),
                 mock(TelegramVoiceHandler.class),
                 mock(TelegramMenuHandler.class),
-                telegramSessionService);
+                telegramSessionService,
+                new TelegramInboundAssembler());
 
         adapter = spy(realAdapter);
         doNothing().when(adapter).sleepForRetry(anyInt());

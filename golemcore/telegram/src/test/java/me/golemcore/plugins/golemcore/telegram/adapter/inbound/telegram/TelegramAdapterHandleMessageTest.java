@@ -105,7 +105,8 @@ class TelegramAdapterHandleMessageTest {
                 new TestObjectProvider<>(commandRouter),
                 mock(TelegramVoiceHandler.class),
                 menuHandler,
-                telegramSessionService);
+                telegramSessionService,
+                new TelegramInboundAssembler());
         adapter.setTelegramClient(telegramClient);
 
         messageHandler = mock(Consumer.class);
