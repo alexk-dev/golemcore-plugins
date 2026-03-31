@@ -626,6 +626,12 @@ public class TelegramAdapter
         attachImageInputs(telegramMessage, metadata);
 
         Message message = messageBuilder.build();
+        if (shouldDropInboundMessage(message)) {
+            log.debug(
+                    "Skipping Telegram update without usable text, voice, or supported attachments: chatId={}, messageId={}",
+                    chatId, telegramMessage.getMessageId());
+            return;
+        }
 
         if (shouldAggregateMessage(telegramMessage, forwardedItems)) {
             inboundAssembler.submit(
@@ -636,6 +642,28 @@ public class TelegramAdapter
         }
 
         emitInboundMessage(message);
+    }
+
+    private boolean shouldDropInboundMessage(Message message) {
+        if (message == null) {
+            return true;
+        }
+        if (!StringValueSupport.isBlank(message.getContent())) {
+            return false;
+        }
+        if (message.hasVoice()) {
+            return false;
+        }
+        Map<String, Object> metadata = message.getMetadata();
+        if (metadata == null) {
+            return true;
+        }
+        Object attachments = metadata.get(METADATA_ATTACHMENTS);
+        if (attachments instanceof Collection<?> collection && !collection.isEmpty()) {
+            return false;
+        }
+        Object forwardedItems = metadata.get(TelegramMetadataKeys.FORWARDED_ITEMS);
+        return !(forwardedItems instanceof Collection<?> collection && !collection.isEmpty());
     }
 
     private void emitInboundMessage(Message message) {

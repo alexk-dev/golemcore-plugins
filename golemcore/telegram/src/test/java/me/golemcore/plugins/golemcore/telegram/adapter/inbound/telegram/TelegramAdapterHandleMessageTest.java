@@ -349,6 +349,23 @@ class TelegramAdapterHandleMessageTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void shouldStillProcessPhotoOnlyMessageWithoutCaption() throws Exception {
+        adapter = spy(adapter);
+        adapter.onMessage(messageHandler);
+        doReturn(new byte[] { 1, 2, 3 }).when(adapter).downloadTelegramFile("photo-file-id");
+
+        Update update = createPhotoUpdate(123L, 100L, null, "photo-file-id");
+        adapter.consume(update);
+
+        Message msg = captureInboundMessage();
+        assertNull(msg.getContent());
+        Object attachmentsRaw = msg.getMetadata().get("attachments");
+        assertNotNull(attachmentsRaw);
+        assertEquals(1, ((List<Map<String, Object>>) attachmentsRaw).size());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void shouldAttachPhotoAsImageAttachment() throws Exception {
         adapter = spy(adapter);
         adapter.onMessage(messageHandler);
@@ -439,7 +456,7 @@ class TelegramAdapterHandleMessageTest {
     // ===== Message without text and without voice =====
 
     @Test
-    void shouldHandleMessageWithoutTextOrVoice() {
+    void shouldIgnoreMessageWithoutTextVoiceOrSupportedAttachments() {
         User user = createUser(123L);
         org.telegram.telegrambots.meta.api.objects.message.Message telegramMsg = mock(
                 org.telegram.telegrambots.meta.api.objects.message.Message.class);
@@ -448,6 +465,10 @@ class TelegramAdapterHandleMessageTest {
         when(telegramMsg.getMessageId()).thenReturn(1);
         when(telegramMsg.hasText()).thenReturn(false);
         when(telegramMsg.hasVoice()).thenReturn(false);
+        when(telegramMsg.hasPhoto()).thenReturn(false);
+        when(telegramMsg.hasDocument()).thenReturn(false);
+        when(telegramMsg.getForwardOrigin()).thenReturn(null);
+        when(telegramMsg.getCaption()).thenReturn(null);
 
         Update update = mock(Update.class);
         when(update.hasMessage()).thenReturn(true);
@@ -456,8 +477,7 @@ class TelegramAdapterHandleMessageTest {
 
         adapter.consume(update);
 
-        // Should still pass message to handler (possibly with null content)
-        verify(messageHandler).accept(any(Message.class));
+        verify(messageHandler, never()).accept(any(Message.class));
     }
 
     // ===== Helpers =====
