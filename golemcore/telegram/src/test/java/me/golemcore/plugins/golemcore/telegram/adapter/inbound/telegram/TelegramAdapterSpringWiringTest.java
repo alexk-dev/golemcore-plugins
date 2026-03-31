@@ -15,7 +15,6 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
@@ -37,6 +36,7 @@ class TelegramAdapterSpringWiringTest {
     }
 
     @Configuration(proxyBeanMethods = false)
+    @SuppressWarnings("PMD.TestClassWithoutTestCases")
     static class TestConfig {
 
         @Bean
