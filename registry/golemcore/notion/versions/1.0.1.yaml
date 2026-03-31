@@ -1,0 +1,12 @@
+id: golemcore/notion
+version: 1.0.1
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/notion/1.0.1/golemcore-notion-plugin-1.0.1.jar"
+publishedAt: "2026-03-31T00:00:00Z"
+sourceCommit: "TBD"
+entrypoint: me.golemcore.plugins.golemcore.notion.NotionPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/notion"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

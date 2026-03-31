@@ -38,9 +38,9 @@ class NotionReindexCoordinatorTest {
                     configService,
                     indexService,
                     mock(NotionRagSyncService.class),
-                    new NotionReindexScheduleResolver(),
-                    scheduler,
-                    Clock.fixed(Instant.parse("2026-03-30T15:30:00Z"), ZoneId.of("UTC")));
+                    new NotionReindexScheduleResolver());
+            coordinator.setSchedulerForTest(scheduler);
+            coordinator.setClockForTest(Clock.fixed(Instant.parse("2026-03-30T15:30:00Z"), ZoneId.of("UTC")));
 
             coordinator.refreshSchedule();
 
@@ -66,9 +66,9 @@ class NotionReindexCoordinatorTest {
                     configService,
                     indexService,
                     ragSyncService,
-                    new NotionReindexScheduleResolver(),
-                    scheduler,
-                    Clock.systemUTC());
+                    new NotionReindexScheduleResolver());
+            coordinator.setSchedulerForTest(scheduler);
+            coordinator.setClockForTest(Clock.systemUTC());
 
             NotionReindexSummary summary = coordinator.reindexNow();
 
@@ -93,9 +93,9 @@ class NotionReindexCoordinatorTest {
                     configService,
                     mock(NotionLocalIndexService.class),
                     mock(NotionRagSyncService.class),
-                    new NotionReindexScheduleResolver(),
-                    scheduler,
-                    Clock.systemUTC());
+                    new NotionReindexScheduleResolver());
+            coordinator.setSchedulerForTest(scheduler);
+            coordinator.setClockForTest(Clock.systemUTC());
 
             IllegalStateException error = assertThrows(IllegalStateException.class, coordinator::reindexNow);
             assertEquals("No indexing target is enabled.", error.getMessage());
