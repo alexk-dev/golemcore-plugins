@@ -40,9 +40,8 @@ import me.golemcore.plugin.api.extension.port.inbound.CommandPort;
 import me.golemcore.plugin.api.extension.spi.TelegramWebhookUpdateConsumer;
 import me.golemcore.plugin.api.runtime.security.AllowlistValidator;
 import jakarta.annotation.PreDestroy;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -123,7 +122,6 @@ import java.util.regex.Pattern;
  * @see me.golemcore.plugin.api.extension.port.inbound.ChannelPort
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class TelegramAdapter
         implements ChannelPort, LongPollingSingleThreadUpdateConsumer, TelegramWebhookUpdateConsumer {
@@ -170,7 +168,7 @@ public class TelegramAdapter
     private final Object lifecycleLock = new Object();
     private final Map<String, InviteAttemptState> inviteAttemptStates = new ConcurrentHashMap<>();
 
-    TelegramAdapter(
+    public TelegramAdapter(
             RuntimeConfigService runtimeConfigService,
             AllowlistValidator allowlistValidator,
             ApplicationEventPublisher eventPublisher,
@@ -180,19 +178,19 @@ public class TelegramAdapter
             ObjectProvider<CommandPort> commandRouter,
             TelegramVoiceHandler voiceHandler,
             TelegramMenuHandler menuHandler,
-            TelegramSessionService telegramSessionService) {
-        this(
-                runtimeConfigService,
-                allowlistValidator,
-                eventPublisher,
-                botsApplication,
-                preferencesService,
-                messageService,
-                commandRouter,
-                voiceHandler,
-                menuHandler,
-                telegramSessionService,
-                new TelegramInboundAssembler());
+            TelegramSessionService telegramSessionService,
+            TelegramInboundAssembler inboundAssembler) {
+        this.runtimeConfigService = runtimeConfigService;
+        this.allowlistValidator = allowlistValidator;
+        this.eventPublisher = eventPublisher;
+        this.botsApplication = botsApplication;
+        this.preferencesService = preferencesService;
+        this.messageService = messageService;
+        this.commandRouter = commandRouter;
+        this.voiceHandler = voiceHandler;
+        this.menuHandler = menuHandler;
+        this.telegramSessionService = telegramSessionService;
+        this.inboundAssembler = inboundAssembler;
     }
 
     /**
