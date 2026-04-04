@@ -39,6 +39,7 @@ The current `golemcore/*` modules in this repository are:
 
 | Plugin | Purpose |
 | --- | --- |
+| `golemcore/airtable` | Airtable records tool plugin with configurable read/write operations for bases and tables. |
 | `golemcore/brave-search` | Brave Search web search tool plugin with API-key backed queries. |
 | `golemcore/browser` | Playwright-backed browser automation tool with screenshot support. |
 | `golemcore/browserless` | Browserless smart scrape plugin for rendered HTML, markdown, and link extraction. |
