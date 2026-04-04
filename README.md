@@ -53,6 +53,7 @@ The current `golemcore/*` modules in this repository are:
 | `golemcore/tavily-search` | Tavily-backed web search tool plugin with configurable search depth and answer generation. |
 | `golemcore/telegram` | Telegram channel, invite onboarding, confirmations, and plan approval integration. |
 | `golemcore/slack` | Slack Socket Mode channel plugin with thread follow-ups, confirmations, and plan approval UI. |
+| `golemcore/supabase` | Supabase PostgREST rows plugin with configurable read/write operations for database tables. |
 | `golemcore/weather` | Open-Meteo weather tool plugin with no external credentials required. |
 | `golemcore/whisper` | Whisper-compatible speech-to-text provider plugin. |
 

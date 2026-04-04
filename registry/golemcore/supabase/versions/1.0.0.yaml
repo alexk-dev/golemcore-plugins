@@ -1,0 +1,12 @@
+id: golemcore/supabase
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/supabase/1.0.0/golemcore-supabase-plugin-1.0.0.jar"
+publishedAt: "TBD"
+sourceCommit: "TBD"
+entrypoint: me.golemcore.plugins.golemcore.supabase.SupabasePluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/supabase"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev
