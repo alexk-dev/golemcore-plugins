@@ -44,7 +44,24 @@ class NotionVaultToolProviderTest {
                 "update_note",
                 "delete_note",
                 "move_note",
-                "rename_note"), operation.get("enum"));
+                "rename_note",
+                "create_database",
+                "read_database",
+                "update_database",
+                "create_data_source",
+                "read_data_source",
+                "update_data_source",
+                "query_database",
+                "create_database_entry",
+                "read_database_entry",
+                "update_database_entry",
+                "list_page_files",
+                "create_file_upload",
+                "upload_file_content",
+                "complete_file_upload",
+                "read_file_upload",
+                "list_file_uploads",
+                "attach_file_to_page"), operation.get("enum"));
     }
 
     @Test
@@ -154,6 +171,41 @@ class NotionVaultToolProviderTest {
 
         assertTrue(result.isSuccess());
         verify(service).renameNote("Projects/Todo", "Done");
+    }
+
+    @Test
+    void shouldDispatchCreateDatabaseToVaultService() {
+        when(service.createDatabase("Projects", "Roadmap", "desc", "{}", true, "🗺️", null))
+                .thenReturn(ToolResult.success("created-db"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_database",
+                "parent_path", "Projects",
+                "title", "Roadmap",
+                "description", "desc",
+                "properties_json", "{}",
+                "inline", true,
+                "icon_emoji", "🗺️")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).createDatabase("Projects", "Roadmap", "desc", "{}", true, "🗺️", null);
+    }
+
+    @Test
+    void shouldDispatchAttachFileToPageToVaultService() {
+        when(service.attachFileToPage("page-1", "upload-1", null, "spec.pdf", "spec", "file"))
+                .thenReturn(ToolResult.success("attached"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "attach_file_to_page",
+                "page_id", "page-1",
+                "file_upload_id", "upload-1",
+                "file_name", "spec.pdf",
+                "caption", "spec",
+                "block_type", "file")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).attachFileToPage("page-1", "upload-1", null, "spec.pdf", "spec", "file");
     }
 
     @Test
