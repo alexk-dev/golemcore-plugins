@@ -392,7 +392,7 @@ def parse_conventional_commit(sha: str, subject: str, body: str) -> Conventional
 
 
 def read_commit_range(range_spec: str, *paths: str) -> list[ConventionalCommit]:
-    command = ["git", "log", "--format=%H%x1f%s%x1f%b%x1e", range_spec]
+    command = ["git", "log", "--no-merges", "--format=%H%x1f%s%x1f%b%x1e", range_spec]
     if paths:
         command.extend(["--", *paths])
     log_output = run_command(*command)
