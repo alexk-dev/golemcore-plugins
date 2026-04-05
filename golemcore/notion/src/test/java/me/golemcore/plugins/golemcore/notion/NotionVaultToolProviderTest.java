@@ -192,6 +192,22 @@ class NotionVaultToolProviderTest {
     }
 
     @Test
+    void shouldDefaultMissingInlineFlagToFalseWhenCreatingDatabase() {
+        when(service.createDatabase("Projects", "Roadmap", "desc", "{}", false, null, null))
+                .thenReturn(ToolResult.success("created-db"));
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_database",
+                "parent_path", "Projects",
+                "title", "Roadmap",
+                "description", "desc",
+                "properties_json", "{}")).join();
+
+        assertTrue(result.isSuccess());
+        verify(service).createDatabase("Projects", "Roadmap", "desc", "{}", false, null, null);
+    }
+
+    @Test
     void shouldDispatchAttachFileToPageToVaultService() {
         when(service.attachFileToPage("page-1", "upload-1", null, "spec.pdf", "spec", "file"))
                 .thenReturn(ToolResult.success("attached"));

@@ -326,13 +326,13 @@ public class NotionVaultToolProvider implements ToolProvider {
         return null;
     }
 
-    private Boolean readBoolean(Object value) {
+    private boolean readBoolean(Object value) {
         if (value instanceof Boolean bool) {
             return bool;
         }
         if (value instanceof String text && !text.isBlank()) {
             return Boolean.parseBoolean(text);
         }
-        return null;
+        return false;
     }
 }

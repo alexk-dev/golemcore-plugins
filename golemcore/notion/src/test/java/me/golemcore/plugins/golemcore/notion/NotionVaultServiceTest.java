@@ -17,7 +17,6 @@ import me.golemcore.plugin.api.extension.model.ToolFailureKind;
 import me.golemcore.plugin.api.extension.model.ToolResult;
 import me.golemcore.plugins.golemcore.notion.support.NotionApiClient;
 import me.golemcore.plugins.golemcore.notion.support.NotionChildSummary;
-import me.golemcore.plugins.golemcore.notion.support.NotionDataSourceSummary;
 import me.golemcore.plugins.golemcore.notion.support.NotionDatabaseSummary;
 import me.golemcore.plugins.golemcore.notion.support.NotionFileUploadSummary;
 import me.golemcore.plugins.golemcore.notion.support.NotionLocalIndexService;

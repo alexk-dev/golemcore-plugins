@@ -421,7 +421,8 @@ public class NotionApiClient {
         }
         try {
             byte[] bytes = Files.readAllBytes(filePath);
-            String fileName = filePath.getFileName() != null ? filePath.getFileName().toString() : "upload.bin";
+            Path leafPath = filePath.getFileName();
+            String fileName = leafPath == null ? "upload.bin" : leafPath.toString();
             MediaType mediaType = contentType != null && !contentType.isBlank()
                     ? MediaType.get(contentType)
                     : OCTET_STREAM;
@@ -603,14 +604,16 @@ public class NotionApiClient {
     }
 
     private NotionFileUploadSummary toFileUploadSummary(JsonNode fileUpload) {
+        JsonNode contentLengthNode = fileUpload.path("content_length");
+        Long contentLength = contentLengthNode.isNumber()
+                ? Long.valueOf(contentLengthNode.longValue())
+                : parseLong(contentLengthNode.asText(""));
         return new NotionFileUploadSummary(
                 fileUpload.path("id").asText(),
                 fileUpload.path("status").asText(""),
                 fileUpload.path("filename").asText(""),
                 fileUpload.path("content_type").asText(""),
-                fileUpload.path("content_length").isNumber()
-                        ? fileUpload.path("content_length").longValue()
-                        : parseLong(fileUpload.path("content_length").asText("")),
+                contentLength,
                 fileUpload.path("upload_url").asText(""),
                 fileUpload.path("expiry_time").asText(""));
     }

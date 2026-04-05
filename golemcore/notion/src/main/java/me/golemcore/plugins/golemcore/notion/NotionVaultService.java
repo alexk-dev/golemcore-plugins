@@ -666,7 +666,7 @@ public class NotionVaultService {
             return Map.of();
         }
         try {
-            return objectMapper.readValue(rawJson, new TypeReference<LinkedHashMap<String, Object>>() {
+            return objectMapper.readValue(rawJson, new TypeReference<>() {
             });
         } catch (JsonProcessingException ex) {
             throw new IllegalArgumentException("Expected JSON object: " + ex.getMessage(), ex);
