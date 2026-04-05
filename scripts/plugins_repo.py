@@ -874,10 +874,9 @@ def run_release(plugin_id: str, bump: str, version_override: str | None, github_
         raise SystemExit(f"Expected artifact was not built: {artifact_path}")
 
     version_path = next_spec.versions_dir / f"{new_version}.yaml"
-    if new_version != spec.version:
-        published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        source_commit = run_command("git", "rev-parse", "HEAD")
-        write_text(version_path, render_registry_version(next_spec, new_version, published_at, source_commit))
+    published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    source_commit = run_command("git", "rev-parse", "HEAD")
+    write_text(version_path, render_registry_version(next_spec, new_version, published_at, source_commit))
 
     write_github_output(
         github_output,

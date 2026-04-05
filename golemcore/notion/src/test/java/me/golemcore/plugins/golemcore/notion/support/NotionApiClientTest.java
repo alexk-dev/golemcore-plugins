@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -229,6 +231,55 @@ class NotionApiClientTest {
         assertEquals("/v1/pages/todo-id", requests.get(2).path());
         assertEquals("Done", objectMapper.readTree(requests.get(2).body())
                 .path("properties").path("title").path("title").get(0).path("text").path("content").asText());
+    }
+
+    @Test
+    void shouldRetrieveFileUploadAndParseStringContentLength() {
+        respondJson(200, """
+                {
+                  "id": "upload-1",
+                  "status": "uploaded",
+                  "filename": "spec.pdf",
+                  "content_type": "application/pdf",
+                  "content_length": "42",
+                  "upload_url": "https://uploads.example/upload-1",
+                  "expiry_time": "2026-04-04T12:00:00Z"
+                }
+                """);
+
+        NotionFileUploadSummary upload = client.retrieveFileUpload("upload-1");
+
+        assertEquals("upload-1", upload.id());
+        assertEquals(42L, upload.contentLength());
+        assertEquals("/v1/file_uploads/upload-1", requests.getFirst().path());
+    }
+
+    @Test
+    void shouldUploadFileContentUsingMultipartEndpoint() throws IOException {
+        Path tempFile = Files.createTempFile("notion-upload-", ".txt");
+        try {
+            Files.writeString(tempFile, "hello notion", StandardCharsets.UTF_8);
+            respondJson(200, """
+                    {
+                      "id": "upload-1",
+                      "status": "uploaded",
+                      "filename": "notion-upload.txt",
+                      "content_type": "text/plain",
+                      "content_length": 12
+                    }
+                    """);
+
+            NotionFileUploadSummary upload = client.uploadFileContent("upload-1", tempFile, "text/plain");
+
+            assertEquals("upload-1", upload.id());
+            CapturedRequest request = requests.getFirst();
+            assertEquals("POST", request.method());
+            assertEquals("/v1/file_uploads/upload-1/send", request.path());
+            assertTrue(request.body().contains("filename=\"" + tempFile.getFileName() + "\""));
+            assertTrue(request.body().contains("hello notion"));
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 
     private void respondJson(int status, String body) {
