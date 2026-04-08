@@ -1,0 +1,7 @@
+id: golemcore/nextcloud
+owner: golemcore
+name: nextcloud
+latest: 1.0.0
+versions:
+  - 1.0.0
+source: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/nextcloud"

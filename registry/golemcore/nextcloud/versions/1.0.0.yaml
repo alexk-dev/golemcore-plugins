@@ -1,0 +1,12 @@
+id: golemcore/nextcloud
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/nextcloud/1.0.0/golemcore-nextcloud-plugin-1.0.0.jar"
+publishedAt: "2026-04-08T03:21:00Z"
+sourceCommit: "0172b8e13a2b49a7bd7bdb3a0bf48e76371ab458"
+entrypoint: me.golemcore.plugins.golemcore.nextcloud.NextcloudPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/nextcloud"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev
