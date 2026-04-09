@@ -1,0 +1,12 @@
+id: golemcore/airtable
+provider: golemcore
+name: airtable
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.airtable.AirtablePluginBootstrap
+description: Airtable records tool plugin backed by the Airtable REST API.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/airtable
+license: Apache-2.0
+maintainers:
+  - alexk-dev

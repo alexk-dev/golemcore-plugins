@@ -1,0 +1,12 @@
+id: golemcore/airtable
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/airtable/1.0.0/golemcore-airtable-plugin-1.0.0.jar"
+publishedAt: "TBD"
+sourceCommit: "TBD"
+entrypoint: me.golemcore.plugins.golemcore.airtable.AirtablePluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/airtable"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev
