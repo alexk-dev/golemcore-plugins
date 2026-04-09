@@ -1,0 +1,12 @@
+id: golemcore/supabase
+provider: golemcore
+name: supabase
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.supabase.SupabasePluginBootstrap
+description: Supabase PostgREST rows plugin backed by the Supabase REST API.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/supabase
+license: Apache-2.0
+maintainers:
+  - alexk-dev
