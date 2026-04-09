@@ -1,0 +1,12 @@
+id: golemcore/s3
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/s3/1.0.0/golemcore-s3-plugin-1.0.0.jar"
+publishedAt: "2026-04-08T15:05:00Z"
+sourceCommit: "0172b8e13a2b49a7bd7bdb3a0bf48e76371ab458"
+entrypoint: me.golemcore.plugins.golemcore.s3.S3PluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/s3"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

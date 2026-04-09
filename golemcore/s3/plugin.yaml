@@ -1,0 +1,12 @@
+id: golemcore/s3
+provider: golemcore
+name: s3
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.s3.S3PluginBootstrap
+description: S3 object plugin backed by the MinIO Java SDK.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/s3
+license: Apache-2.0
+maintainers:
+  - alexk-dev
