@@ -83,6 +83,7 @@
         <module>golemcore/weather</module>
         <module>golemcore/mail</module>
         <module>golemcore/lightrag</module>
+        <module>golemcore/brain</module>
     </modules>
 
     <dependencyManagement>

@@ -1,0 +1,12 @@
+id: golemcore/brain
+provider: golemcore
+name: brain
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.brain.BrainPluginBootstrap
+description: "GolemCore Brain wiki plugin for CRUD operations and optional dynamic relevance search."
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brain"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

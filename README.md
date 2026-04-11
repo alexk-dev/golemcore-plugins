@@ -40,6 +40,7 @@ The current `golemcore/*` modules in this repository are:
 | Plugin | Purpose |
 | --- | --- |
 | `golemcore/brave-search` | Brave Search web search tool plugin with API-key backed queries. |
+| `golemcore/brain` | GolemCore Brain wiki tool plugin for CRUD operations and optional dynamic relevance search. |
 | `golemcore/browser` | Playwright-backed browser automation tool with screenshot support. |
 | `golemcore/browserless` | Browserless smart scrape plugin for rendered HTML, markdown, and link extraction. |
 | `golemcore/elevenlabs` | ElevenLabs-backed STT/TTS provider plugin. |
