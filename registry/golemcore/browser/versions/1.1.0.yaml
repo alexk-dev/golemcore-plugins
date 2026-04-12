@@ -1,11 +1,11 @@
 id: golemcore/browser
-provider: golemcore
-name: browser
 version: 1.1.0
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/browser/1.1.0/golemcore-browser-plugin-1.1.0.jar"
+publishedAt: "2026-04-12T19:46:23Z"
+sourceCommit: "94ae9b862cab51b6fc15bf5fee33e1109d55be83"
 entrypoint: me.golemcore.plugins.golemcore.browser.BrowserPluginBootstrap
-description: "Playwright-backed browser automation tool with screenshot support."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browser"
 license: "Apache-2.0"
 maintainers:
