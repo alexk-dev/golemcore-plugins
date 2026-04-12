@@ -1,0 +1,12 @@
+id: golemcore/brain
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+artifactUrl: "dist/golemcore/brain/1.0.0/golemcore-brain-plugin-1.0.0.jar"
+publishedAt: "pending-release"
+sourceCommit: "pending-release"
+entrypoint: me.golemcore.plugins.golemcore.brain.BrainPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brain"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev
