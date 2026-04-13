@@ -1,9 +1,10 @@
 id: golemcore/elevenlabs
 owner: golemcore
 name: elevenlabs
-latest: 1.1.1
+latest: 1.1.2
 versions:
   - 1.0.0
   - 1.1.0
   - 1.1.1
+  - 1.1.2
 source: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/elevenlabs"

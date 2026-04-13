@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <artifactId>golemcore-mail-plugin</artifactId>
     <name>golemcore/mail</name>
     <description>IMAP and SMTP tool plugin for GolemCore</description>

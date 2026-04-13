@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <artifactId>golemcore-lightrag-plugin</artifactId>
     <name>golemcore/lightrag</name>
     <description>LightRAG provider plugin for GolemCore</description>

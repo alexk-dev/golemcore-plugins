@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <artifactId>golemcore-perplexity-sonar-plugin</artifactId>
     <name>golemcore/perplexity-sonar</name>
     <description>Perplexity Sonar grounded answer plugin for GolemCore</description>

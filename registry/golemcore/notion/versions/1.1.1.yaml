@@ -1,11 +1,11 @@
 id: golemcore/notion
-provider: golemcore
-name: notion
 version: 1.1.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
+artifactUrl: "dist/golemcore/notion/1.1.1/golemcore-notion-plugin-1.1.1.jar"
+publishedAt: "2026-04-13T23:50:29Z"
+sourceCommit: "TBD"
 entrypoint: me.golemcore.plugins.golemcore.notion.NotionPluginBootstrap
-description: "Notion vault plugin backed by the official Notion HTTP API."
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/notion"
 license: "Apache-2.0"
 maintainers:

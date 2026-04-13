@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <artifactId>golemcore-obsidian-plugin</artifactId>
     <name>golemcore/obsidian</name>
     <description>Obsidian vault plugin for GolemCore</description>

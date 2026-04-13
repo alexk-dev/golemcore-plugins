@@ -1,9 +1,9 @@
 id: golemcore/obsidian
 provider: golemcore
 name: obsidian
-version: 1.0.0
+version: 1.0.1
 pluginApiVersion: 1
-engineVersion: ">=0.0.0 <1.0.0"
+engineVersion: ">=0.0.0 <2.0.0"
 entrypoint: me.golemcore.plugins.golemcore.obsidian.ObsidianPluginBootstrap
 description: Obsidian vault plugin backed by obsidian-local-rest-api.
 sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/obsidian

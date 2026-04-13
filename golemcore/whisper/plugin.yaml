@@ -1,9 +1,9 @@
 id: golemcore/whisper
 provider: golemcore
 name: whisper
-version: 1.2.0
+version: 1.2.1
 pluginApiVersion: 1
-engineVersion: ">=0.0.0 <1.0.0"
+engineVersion: ">=0.0.0 <2.0.0"
 entrypoint: me.golemcore.plugins.golemcore.whisper.WhisperPluginBootstrap
 description: Whisper-compatible speech-to-text and text-to-speech provider plugin.
 sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/whisper

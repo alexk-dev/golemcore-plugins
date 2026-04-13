@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.3.2</version>
+    <version>1.3.3</version>
     <artifactId>golemcore-telegram-plugin</artifactId>
     <name>golemcore/telegram</name>
     <description>Telegram channel plugin for GolemCore</description>
