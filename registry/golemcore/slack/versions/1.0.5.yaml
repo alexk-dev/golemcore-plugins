@@ -3,8 +3,8 @@ version: 1.0.5
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/slack/1.0.5/golemcore-slack-plugin-1.0.5.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:19:23Z"
+sourceCommit: "a4de393b1d88b0b7d235ce830efaa397a42523cf"
 entrypoint: me.golemcore.plugins.golemcore.slack.SlackPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/slack"
 license: "Apache-2.0"
