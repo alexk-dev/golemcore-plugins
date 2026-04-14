@@ -3,8 +3,8 @@ version: 1.3.3
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/telegram/1.3.3/golemcore-telegram-plugin-1.3.3.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:20:16Z"
+sourceCommit: "4796ac1741c5fde0eb9db7e940d42e1b394b2886"
 entrypoint: me.golemcore.plugins.golemcore.telegram.TelegramPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/telegram"
 license: "Apache-2.0"
