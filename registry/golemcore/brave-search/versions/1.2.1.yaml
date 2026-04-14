@@ -3,8 +3,8 @@ version: 1.2.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/brave-search/1.2.1/golemcore-brave-search-plugin-1.2.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:14:08Z"
+sourceCommit: "70ac37376f24892aca2be83bb21ec32371d1caf9"
 entrypoint: me.golemcore.plugins.golemcore.bravesearch.BraveSearchPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brave-search"
 license: "Apache-2.0"
