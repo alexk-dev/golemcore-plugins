@@ -1,9 +1,9 @@
 id: golemcore/pinchtab
 provider: golemcore
 name: pinchtab
-version: 1.0.0
+version: 1.0.1
 pluginApiVersion: 1
-engineVersion: ">=0.0.0 <1.0.0"
+engineVersion: ">=0.0.0 <2.0.0"
 entrypoint: me.golemcore.plugins.golemcore.pinchtab.PinchTabPluginBootstrap
 description: PinchTab browser automation plugin for navigation, snapshots, actions, text extraction, and screenshots.
 sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/pinchtab

@@ -1,0 +1,12 @@
+id: golemcore/tavily-search
+version: 1.0.1
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <2.0.0"
+artifactUrl: "dist/golemcore/tavily-search/1.0.1/golemcore-tavily-search-plugin-1.0.1.jar"
+publishedAt: "2026-04-13T23:50:29Z"
+sourceCommit: "TBD"
+entrypoint: me.golemcore.plugins.golemcore.tavilysearch.TavilySearchPluginBootstrap
+sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/tavily-search"
+license: "Apache-2.0"
+maintainers:
+  - alexk-dev

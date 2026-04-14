@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <artifactId>golemcore-firecrawl-plugin</artifactId>
     <name>golemcore/firecrawl</name>
     <description>Firecrawl scraping tool plugin for GolemCore</description>

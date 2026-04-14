@@ -1,9 +1,9 @@
 id: golemcore/browserless
 provider: golemcore
 name: browserless
-version: 1.0.0
+version: 1.0.1
 pluginApiVersion: 1
-engineVersion: ">=0.0.0 <1.0.0"
+engineVersion: ">=0.0.0 <2.0.0"
 entrypoint: me.golemcore.plugins.golemcore.browserless.BrowserlessPluginBootstrap
 description: Browserless smart scrape plugin for rendered HTML, markdown, and link extraction.
 sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browserless

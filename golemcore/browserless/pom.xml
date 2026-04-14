@@ -11,7 +11,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <artifactId>golemcore-browserless-plugin</artifactId>
     <name>golemcore/browserless</name>
     <description>Browserless smart scrape tool plugin for GolemCore</description>

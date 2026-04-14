@@ -1,7 +1,8 @@
 id: golemcore/browserless
 owner: golemcore
 name: browserless
-latest: 1.0.0
+latest: 1.0.1
 versions:
   - 1.0.0
+  - 1.0.1
 source: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browserless
