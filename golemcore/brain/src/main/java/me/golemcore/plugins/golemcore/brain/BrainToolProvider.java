@@ -83,7 +83,8 @@ public class BrainToolProvider implements ToolProvider {
         properties.put(PARAM_CONTEXT, stringProperty("Natural language context for intellisearch."));
         properties.put(PARAM_LIMIT, integerProperty("Maximum number of results or pages."));
         properties.put(PARAM_PATH, stringProperty("Brain page path."));
-        properties.put(PARAM_PARENT_PATH, stringProperty("Parent section path for create_page."));
+        properties.put(PARAM_PARENT_PATH, stringProperty(
+                "Parent section path for create_page. If the exact path is not found, the Brain plugin also tries a slugified title form."));
         properties.put(PARAM_TITLE, stringProperty("Page title."));
         properties.put(PARAM_SLUG, stringProperty("Optional page slug."));
         properties.put(PARAM_CONTENT, stringProperty("Markdown page content."));

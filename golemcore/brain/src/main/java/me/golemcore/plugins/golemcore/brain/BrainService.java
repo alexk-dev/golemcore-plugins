@@ -18,12 +18,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 public class BrainService {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final int DEFAULT_SEARCH_LIMIT = 5;
+    private static final Pattern SLUG_SEPARATOR_PATTERN = Pattern.compile("[^a-z0-9]+");
 
     private final BrainPluginConfigService configService;
     private final OkHttpClient httpClient;
@@ -116,13 +120,13 @@ public class BrainService {
             String kind) {
         requireWriteAllowed();
         String space = resolveSpace(spaceSlug);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("parentPath", valueOrEmpty(parentPath));
-        payload.put("title", requireText(title, "title"));
-        payload.put("slug", trimToNull(slug));
-        payload.put("content", valueOrEmpty(content));
-        payload.put("kind", trimToNull(kind) != null ? kind : "PAGE");
         try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("parentPath", resolveSectionPath(space, parentPath));
+            payload.put("title", requireText(title, "title"));
+            payload.put("slug", trimToNull(slug));
+            payload.put("content", valueOrEmpty(content));
+            payload.put("kind", trimToNull(kind) != null ? kind : "PAGE");
             JsonNode node = executeJson("POST", spaceUrl(space, "/pages"), payload);
             return ToolResult.success("Created Brain page " + node.path("path").asText(""), nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
@@ -236,6 +240,74 @@ public class BrainService {
         }
     }
 
+    private String resolveSectionPath(String space, String parentPath) throws IOException {
+        String requestedPath = valueOrEmpty(parentPath);
+        if (requestedPath.isBlank()) {
+            return "";
+        }
+        Optional<String> exactPath = findSectionPath(space, requestedPath, true);
+        if (exactPath.isPresent()) {
+            return exactPath.get();
+        }
+        String slugifiedPath = slugifyPath(requestedPath);
+        if (!slugifiedPath.isBlank() && !slugifiedPath.equals(requestedPath)) {
+            Optional<String> slugPath = findSectionPath(space, slugifiedPath, false);
+            if (slugPath.isPresent()) {
+                return slugPath.get();
+            }
+        }
+        throw new IllegalStateException("Brain section not found: " + requestedPath
+                + " (also tried: " + slugifiedPath + ")");
+    }
+
+    private Optional<String> findSectionPath(String space, String path, boolean failWhenPage) throws IOException {
+        try {
+            JsonNode node = executeJson("GET", pageUrl(space, path), null);
+            if (isSectionNode(node)) {
+                String resolvedPath = node.path("path").asText(path);
+                return Optional.of(resolvedPath);
+            }
+            if (failWhenPage && "PAGE".equals(node.path("kind").asText(""))) {
+                throw new IllegalStateException("Brain path is not a section: " + path);
+            }
+            return Optional.empty();
+        } catch (BrainApiException exception) {
+            if (exception.getHttpStatusCode() == 404) {
+                return Optional.empty();
+            }
+            throw exception;
+        }
+    }
+
+    private boolean isSectionNode(JsonNode node) {
+        String kind = node.path("kind").asText("");
+        return "SECTION".equals(kind) || "ROOT".equals(kind);
+    }
+
+    private String slugifyPath(String path) {
+        String normalized = path.replace('\\', '/').trim()
+                .replaceAll("^/+", "")
+                .replaceAll("/+$", "");
+        if (normalized.isBlank()) {
+            return "";
+        }
+        List<String> segments = new ArrayList<>();
+        for (String segment : normalized.split("/")) {
+            String slug = slugifySegment(segment);
+            if (!slug.isBlank()) {
+                segments.add(slug);
+            }
+        }
+        return String.join("/", segments);
+    }
+
+    private String slugifySegment(String segment) {
+        String slug = SLUG_SEPARATOR_PATTERN.matcher(segment.trim().toLowerCase(Locale.ROOT)).replaceAll("-")
+                .replaceAll("^-+", "")
+                .replaceAll("-+$", "");
+        return slug;
+    }
+
     private ToolResult fallbackIntellisearch(String space, String context, String query, int limit) {
         try {
             JsonNode hits = executeJson("GET", searchUrl(space, query, limit), null);
@@ -270,8 +342,7 @@ public class BrainService {
                 ResponseBody body = response.body()) {
             String responseBody = body != null ? body.string() : "";
             if (!response.isSuccessful()) {
-                throw new IllegalStateException("Brain API request failed with HTTP " + response.code()
-                        + responseMessage(responseBody));
+                throw new BrainApiException(response.code(), responseMessage(responseBody));
             }
             if (responseBody.isBlank()) {
                 return objectMapper.nullNode();
@@ -285,8 +356,7 @@ public class BrainService {
                 ResponseBody body = response.body()) {
             String responseBody = body != null ? body.string() : "";
             if (!response.isSuccessful()) {
-                throw new IllegalStateException("Brain API request failed with HTTP " + response.code()
-                        + responseMessage(responseBody));
+                throw new BrainApiException(response.code(), responseMessage(responseBody));
             }
         }
     }
@@ -407,7 +477,22 @@ public class BrainService {
         if (body == null || body.isBlank()) {
             return "";
         }
-        return ": " + body;
+        String extracted = extractErrorMessage(body);
+        return extracted.isBlank() ? ": " + body.trim() : ": " + extracted;
+    }
+
+    private String extractErrorMessage(String body) {
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            String error = node.path("error").asText("");
+            if (!error.isBlank()) {
+                return error;
+            }
+            String message = node.path("message").asText("");
+            return message.isBlank() ? "" : message;
+        } catch (JsonProcessingException exception) {
+            return "";
+        }
     }
 
     private String requireText(String value, String fieldName) {
@@ -439,4 +524,20 @@ public class BrainService {
     private String encodePathSegment(String value) {
         return value.replace("/", "%2F");
     }
+
+    private static class BrainApiException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private final int httpStatusCode;
+
+        BrainApiException(int httpStatusCode, String responseMessage) {
+            super("Brain API request failed with HTTP " + httpStatusCode + responseMessage);
+            this.httpStatusCode = httpStatusCode;
+        }
+
+        int getHttpStatusCode() {
+            return httpStatusCode;
+        }
+    }
+
 }

@@ -104,6 +104,9 @@ class BrainToolProviderTest {
     void shouldCreatePageThroughBrainCrudApiWhenWritesAllowed() {
         config.setAllowWrite(true);
         httpEngine.enqueueJson(200, """
+                {"path":"ops","title":"Ops","content":"","kind":"SECTION"}
+                """);
+        httpEngine.enqueueJson(200, """
                 {"path":"ops/runbook","title":"Runbook","content":"# Runbook","kind":"PAGE"}
                 """);
 
@@ -116,11 +119,102 @@ class BrainToolProviderTest {
                 "kind", "PAGE")).join();
 
         assertTrue(result.isSuccess());
-        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
-        assertEquals("POST", request.method());
-        assertEquals("/api/spaces/docs/pages", request.target());
-        assertTrue(request.body().contains("\"parentPath\":\"ops\""));
-        assertTrue(request.body().contains("\"title\":\"Runbook\""));
+        OkHttpMockEngine.CapturedRequest lookupRequest = httpEngine.takeRequest();
+        OkHttpMockEngine.CapturedRequest createRequest = httpEngine.takeRequest();
+        assertEquals("GET", lookupRequest.method());
+        assertEquals("/api/spaces/docs/page?path=ops", lookupRequest.target());
+        assertEquals("POST", createRequest.method());
+        assertEquals("/api/spaces/docs/pages", createRequest.target());
+        assertTrue(createRequest.body().contains("\"parentPath\":\"ops\""));
+        assertTrue(createRequest.body().contains("\"title\":\"Runbook\""));
+    }
+
+    @Test
+    void shouldResolveCreateParentPathBySlugifyingTitleWhenExactPathIsMissing() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(404, """
+                {"error":"Page not found: golem notes"}
+                """);
+        httpEngine.enqueueJson(200, """
+                {"path":"golem-notes","title":"Golem Notes","content":"","kind":"SECTION"}
+                """);
+        httpEngine.enqueueJson(200, """
+                {"path":"golem-notes/test-note","title":"Test Note","content":"Body","kind":"PAGE"}
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_page",
+                "parent_path", "golem notes",
+                "title", "Test Note",
+                "slug", "test-note",
+                "content", "Body",
+                "kind", "PAGE")).join();
+
+        assertTrue(result.isSuccess());
+        OkHttpMockEngine.CapturedRequest exactLookup = httpEngine.takeRequest();
+        OkHttpMockEngine.CapturedRequest slugLookup = httpEngine.takeRequest();
+        OkHttpMockEngine.CapturedRequest createRequest = httpEngine.takeRequest();
+        assertEquals("/api/spaces/docs/page?path=golem%20notes", exactLookup.target());
+        assertEquals("/api/spaces/docs/page?path=golem-notes", slugLookup.target());
+        assertEquals("POST", createRequest.method());
+        assertTrue(createRequest.body().contains("\"parentPath\":\"golem-notes\""));
+    }
+
+    @Test
+    void shouldRejectCreateParentPathThatResolvesToPage() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(200, """
+                {"path":"ops/runbook","title":"Runbook","content":"Body","kind":"PAGE"}
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_page",
+                "parent_path", "ops/runbook",
+                "title", "Child",
+                "slug", "child",
+                "content", "Body",
+                "kind", "PAGE")).join();
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("Brain path is not a section: ops/runbook"));
+        assertEquals(1, httpEngine.getRequestCount());
+    }
+
+    @Test
+    void shouldExposeBrainApiErrorMessageWithoutRawJson() {
+        httpEngine.enqueueJson(404, """
+                {"error":"Section not found: golem notes"}
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "read_page",
+                "path", "golem notes")).join();
+
+        assertFalse(result.isSuccess());
+        assertEquals("Brain API request failed with HTTP 404: Section not found: golem notes", result.getError());
+    }
+
+    @Test
+    void shouldReturnClearErrorWhenCreateParentSectionCannotBeResolved() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(404, """
+                {"error":"Page not found: Missing Section"}
+                """);
+        httpEngine.enqueueJson(404, """
+                {"error":"Page not found: missing-section"}
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "create_page",
+                "parent_path", "Missing Section",
+                "title", "Test Note",
+                "slug", "test-note",
+                "content", "Body",
+                "kind", "PAGE")).join();
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getError().contains("Brain section not found: Missing Section"));
+        assertEquals(2, httpEngine.getRequestCount());
     }
 
     @Test
