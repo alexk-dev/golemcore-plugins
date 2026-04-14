@@ -3,8 +3,8 @@ version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/firecrawl/1.0.1/golemcore-firecrawl-plugin-1.0.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:16:23Z"
+sourceCommit: "8883d7e3e5c6305b5d5045b42d5d3fc4e76681cf"
 entrypoint: me.golemcore.plugins.golemcore.firecrawl.FirecrawlPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/firecrawl"
 license: "Apache-2.0"
