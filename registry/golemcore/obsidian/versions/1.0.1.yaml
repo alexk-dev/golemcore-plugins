@@ -3,8 +3,8 @@ version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/obsidian/1.0.1/golemcore-obsidian-plugin-1.0.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:18:05Z"
+sourceCommit: "e7604f3a1fd4433e5da3c1c71e9be6d159e9687e"
 entrypoint: me.golemcore.plugins.golemcore.obsidian.ObsidianPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/obsidian"
 license: "Apache-2.0"
