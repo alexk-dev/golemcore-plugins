@@ -3,8 +3,8 @@ version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/pinchtab/1.0.1/golemcore-pinchtab-plugin-1.0.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:18:56Z"
+sourceCommit: "fc19e782926b1f913d1665441d43ee1c448d8fcf"
 entrypoint: me.golemcore.plugins.golemcore.pinchtab.PinchTabPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/pinchtab"
 license: "Apache-2.0"
