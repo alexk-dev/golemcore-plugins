@@ -3,8 +3,8 @@ version: 1.2.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/whisper/1.2.1/golemcore-whisper-plugin-1.2.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:21:01Z"
+sourceCommit: "95152ab40609ce37954505e873b68ebb5e0c6aaa"
 entrypoint: me.golemcore.plugins.golemcore.whisper.WhisperPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/whisper"
 license: "Apache-2.0"
