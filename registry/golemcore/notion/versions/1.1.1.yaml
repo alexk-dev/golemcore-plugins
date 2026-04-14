@@ -3,8 +3,8 @@ version: 1.1.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/notion/1.1.1/golemcore-notion-plugin-1.1.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:17:39Z"
+sourceCommit: "5b38d376d26e380169a4b65bef3cf15d7fa11a4e"
 entrypoint: me.golemcore.plugins.golemcore.notion.NotionPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/notion"
 license: "Apache-2.0"
