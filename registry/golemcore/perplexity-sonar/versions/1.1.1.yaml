@@ -3,8 +3,8 @@ version: 1.1.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/perplexity-sonar/1.1.1/golemcore-perplexity-sonar-plugin-1.1.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:18:29Z"
+sourceCommit: "528168122fd500a0bff24001f3dd4ea14eef3fc5"
 entrypoint: me.golemcore.plugins.golemcore.perplexitysonar.PerplexitySonarPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/perplexity-sonar"
 license: "Apache-2.0"
