@@ -3,8 +3,8 @@ version: 1.1.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/browser/1.1.1/golemcore-browser-plugin-1.1.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:15:00Z"
+sourceCommit: "f314bfad7612e073cb730db8ddf20bfcbbc5e3b8"
 entrypoint: me.golemcore.plugins.golemcore.browser.BrowserPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/browser"
 license: "Apache-2.0"
