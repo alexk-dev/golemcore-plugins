@@ -3,8 +3,8 @@ version: 1.0.1
 pluginApiVersion: 1
 engineVersion: ">=0.0.0 <2.0.0"
 artifactUrl: "dist/golemcore/brain/1.0.1/golemcore-brain-plugin-1.0.1.jar"
-publishedAt: "2026-04-13T23:50:29Z"
-sourceCommit: "TBD"
+publishedAt: "2026-04-14T00:13:45Z"
+sourceCommit: "bd53726c16483d431b69c6a78a66f2cacdadcf02"
 entrypoint: me.golemcore.plugins.golemcore.brain.BrainPluginBootstrap
 sourceUrl: "https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/brain"
 license: "Apache-2.0"
