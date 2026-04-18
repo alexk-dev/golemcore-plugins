@@ -51,6 +51,7 @@ The current `golemcore/*` modules in this repository are:
 | `golemcore/obsidian` | Obsidian vault plugin backed by obsidian-local-rest-api. |
 | `golemcore/perplexity-sonar` | Perplexity Sonar grounded-answer plugin with configurable model selection and synchronous completions. |
 | `golemcore/pinchtab` | PinchTab browser automation plugin for navigation, snapshots, actions, text extraction, and screenshots. |
+| `golemcore/s3` | S3-compatible object storage plugin backed by the MinIO Java SDK. |
 | `golemcore/tavily-search` | Tavily-backed web search tool plugin with configurable search depth and answer generation. |
 | `golemcore/telegram` | Telegram channel, invite onboarding, confirmations, and plan approval integration. |
 | `golemcore/slack` | Slack Socket Mode channel plugin with thread follow-ups, confirmations, and plan approval UI. |
