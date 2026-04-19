@@ -27,6 +27,9 @@ public class BrainService {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final int DEFAULT_SEARCH_LIMIT = 5;
+    private static final String SEARCH_MODE_AUTO = "auto";
+    private static final String SEARCH_MODE_FTS = "fts";
+    private static final String SEARCH_MODE_HYBRID = "hybrid";
     private static final Pattern SLUG_SEPARATOR_PATTERN = Pattern.compile("[^a-z0-9]+");
 
     private final BrainPluginConfigService configService;
@@ -69,13 +72,29 @@ public class BrainService {
         }
     }
 
-    public ToolResult searchPages(String spaceSlug, String query, Integer limit) {
+    public ToolResult searchPages(String spaceSlug, String query, String searchMode, Integer limit) {
         String resolvedQuery = requireText(query, "query");
         String space = resolveSpace(spaceSlug);
+        String resolvedMode = resolveSearchMode(searchMode, SEARCH_MODE_AUTO);
         int resolvedLimit = resolveLimit(limit, DEFAULT_SEARCH_LIMIT);
         try {
-            JsonNode node = executeJson("GET", searchUrl(space, resolvedQuery, resolvedLimit), null);
+            JsonNode node = executeJson("POST", searchUrl(space),
+                    searchPayload(resolvedQuery, resolvedMode, resolvedLimit));
             return ToolResult.success(formatSearchResults(resolvedQuery, node), nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult getSearchStatus(String spaceSlug) {
+        String space = resolveSpace(spaceSlug);
+        try {
+            JsonNode node = executeJson("GET", searchStatusUrl(space), null);
+            String output = "Brain search status for " + space
+                    + ": ready=" + node.path("ready").asBoolean(false)
+                    + ", indexedDocuments=" + node.path("indexedDocuments").asInt(0)
+                    + ", embeddingsReady=" + node.path("embeddingsReady").asBoolean(false);
+            return ToolResult.success(output, nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
             return executionFailure(exception.getMessage());
         }
@@ -117,7 +136,7 @@ public class BrainService {
     }
 
     public ToolResult createPage(String spaceSlug, String parentPath, String title, String slug, String content,
-            String kind) {
+            String kind, List<String> tags, String summary) {
         requireWriteAllowed();
         String space = resolveSpace(spaceSlug);
         try {
@@ -127,6 +146,12 @@ public class BrainService {
             payload.put("slug", trimToNull(slug));
             payload.put("content", valueOrEmpty(content));
             payload.put("kind", trimToNull(kind) != null ? kind : "PAGE");
+            if (tags != null && !tags.isEmpty()) {
+                payload.put("tags", tags);
+            }
+            if (trimToNull(summary) != null) {
+                payload.put("summary", summary);
+            }
             JsonNode node = executeJson("POST", spaceUrl(space, "/pages"), payload);
             return ToolResult.success("Created Brain page " + node.path("path").asText(""), nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
@@ -135,7 +160,7 @@ public class BrainService {
     }
 
     public ToolResult updatePage(String spaceSlug, String path, String title, String slug, String content,
-            String revision) {
+            String revision, List<String> tags, String summary) {
         requireWriteAllowed();
         String pagePath = requireText(path, "path");
         String space = resolveSpace(spaceSlug);
@@ -144,9 +169,82 @@ public class BrainService {
         payload.put("slug", trimToNull(slug));
         payload.put("content", valueOrEmpty(content));
         payload.put("revision", trimToNull(revision));
+        if (tags != null && !tags.isEmpty()) {
+            payload.put("tags", tags);
+        }
+        if (trimToNull(summary) != null) {
+            payload.put("summary", summary);
+        }
         try {
             JsonNode node = executeJson("PUT", pageUrl(space, pagePath), payload);
             return ToolResult.success("Updated Brain page " + node.path("path").asText(pagePath), nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult patchPage(String spaceSlug, String path, String operation, String heading, String content,
+            String expectedRevision) {
+        requireWriteAllowed();
+        String pagePath = requireText(path, "path");
+        String resolvedOperation = requireText(operation, "patch_operation");
+        String resolvedRevision = requireText(expectedRevision, "expected_revision");
+        String space = resolveSpace(spaceSlug);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("operation", resolvedOperation.toUpperCase(Locale.ROOT));
+        payload.put("expectedRevision", resolvedRevision);
+        payload.put("content", valueOrEmpty(content));
+        payload.put("heading", trimToNull(heading));
+        try {
+            JsonNode node = executeJson("PATCH", pageUrl(space, pagePath), payload);
+            return ToolResult.success("Patched Brain page " + pagePath + " (" + resolvedOperation + ")",
+                    nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult getWikiGraph(String spaceSlug) {
+        String space = resolveSpace(spaceSlug);
+        try {
+            JsonNode node = executeJson("GET", spaceUrl(space, "/wiki/graph"), null);
+            int orphanCount = node.path("orphans").isArray() ? node.path("orphans").size() : 0;
+            int danglingCount = node.path("dangling").isArray() ? node.path("dangling").size() : 0;
+            return ToolResult.success(
+                    "Brain graph for " + space + ": " + orphanCount + " orphan(s), " + danglingCount + " dangling",
+                    nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult listTopAccessed(String spaceSlug, Integer limit) {
+        String space = resolveSpace(spaceSlug);
+        int resolvedLimit = resolveLimit(limit, DEFAULT_SEARCH_LIMIT);
+        try {
+            JsonNode node = executeJson("GET",
+                    spaceUrl(space, "/wiki/access/top").newBuilder()
+                            .addQueryParameter("limit", Integer.toString(resolvedLimit)).build(),
+                    null);
+            int count = node.path("items").isArray() ? node.path("items").size() : 0;
+            return ToolResult.success("Listed " + count + " top Brain page(s) by access count", nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult applyTransaction(String spaceSlug, List<Map<String, Object>> operations) {
+        requireWriteAllowed();
+        if (operations == null || operations.isEmpty()) {
+            return executionFailure("operations is required and must be non-empty");
+        }
+        String space = resolveSpace(spaceSlug);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("operations", operations);
+        try {
+            JsonNode node = executeJson("POST", spaceUrl(space, "/wiki/tx"), payload);
+            int applied = node.path("operations").isArray() ? node.path("operations").size() : 0;
+            return ToolResult.success("Applied Brain transaction with " + applied + " operation(s)", nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
             return executionFailure(exception.getMessage());
         }
@@ -219,6 +317,28 @@ public class BrainService {
         try {
             JsonNode node = executeJson("GET", pageActionUrl(space, pagePath, "/pages/assets"), null);
             return ToolResult.success("Listed Brain assets for " + pagePath, nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult reindexSpace(String spaceSlug) {
+        requireWriteAllowed();
+        String space = resolveSpace(spaceSlug);
+        try {
+            JsonNode node = executeJson("POST", adminSpaceReindexUrl(space), null);
+            return ToolResult.success("Queued Brain reindex for space " + space, nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult reindexAllSpaces() {
+        requireWriteAllowed();
+        try {
+            JsonNode node = executeJson("POST", adminSpacesReindexUrl(), null);
+            int spacesQueued = node.path("spacesQueued").asInt(0);
+            return ToolResult.success("Queued Brain reindex for " + spacesQueued + " space(s)", nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
             return executionFailure(exception.getMessage());
         }
@@ -310,7 +430,9 @@ public class BrainService {
 
     private ToolResult fallbackIntellisearch(String space, String context, String query, int limit) {
         try {
-            JsonNode hits = executeJson("GET", searchUrl(space, query, limit), null);
+            JsonNode searchResult = executeJson("POST", searchUrl(space),
+                    searchPayload(query, SEARCH_MODE_HYBRID, limit));
+            JsonNode hits = searchHits(searchResult);
             List<Map<String, Object>> documents = new ArrayList<>();
             if (hits.isArray()) {
                 for (JsonNode hit : hits) {
@@ -370,8 +492,16 @@ public class BrainService {
         if (apiToken != null && !apiToken.isBlank()) {
             builder.header("Authorization", "Bearer " + apiToken);
         }
-        RequestBody body = payload == null ? null : RequestBody.create(objectMapper.writeValueAsString(payload), JSON);
+        RequestBody body = payload == null
+                ? emptyRequestBody(method)
+                : RequestBody.create(objectMapper.writeValueAsString(payload), JSON);
         return builder.method(method, body).build();
+    }
+
+    private RequestBody emptyRequestBody(String method) {
+        return "POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)
+                ? RequestBody.create("", JSON)
+                : null;
     }
 
     private HttpUrl apiUrl(String path) {
@@ -397,11 +527,20 @@ public class BrainService {
                 .build();
     }
 
-    private HttpUrl searchUrl(String space, String query, int limit) {
-        return spaceUrl(space, "/search").newBuilder()
-                .addQueryParameter("q", query)
-                .addQueryParameter("limit", Integer.toString(limit))
-                .build();
+    private HttpUrl searchUrl(String space) {
+        return spaceUrl(space, "/search");
+    }
+
+    private HttpUrl searchStatusUrl(String space) {
+        return spaceUrl(space, "/search/status");
+    }
+
+    private HttpUrl adminSpaceReindexUrl(String space) {
+        return apiUrl("/api/admin/spaces/" + encodePathSegment(space) + "/reindex");
+    }
+
+    private HttpUrl adminSpacesReindexUrl() {
+        return apiUrl("/api/admin/spaces/reindex");
     }
 
     private HttpUrl dynamicApiUrl(String space, String dynamicApiSlug) {
@@ -428,8 +567,16 @@ public class BrainService {
 
     private void requireWriteAllowed() {
         if (!Boolean.TRUE.equals(configService.getConfig().getAllowWrite())) {
-            throw new IllegalStateException("Brain write operations are disabled in plugin settings");
+            throw new IllegalStateException("Brain mutating operations are disabled in plugin settings");
         }
+    }
+
+    private Map<String, Object> searchPayload(String query, String mode, int limit) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("query", query);
+        payload.put("mode", mode);
+        payload.put("limit", limit);
+        return payload;
     }
 
     private Object nodeToData(JsonNode node) throws JsonProcessingException {
@@ -438,16 +585,34 @@ public class BrainService {
     }
 
     private String formatSearchResults(String query, JsonNode node) {
-        if (!node.isArray() || node.isEmpty()) {
+        JsonNode hits = searchHits(node);
+        if (!hits.isArray() || hits.isEmpty()) {
             return "No Brain pages found for: " + query;
         }
+        String mode = node.path("mode").asText("");
+        String modeSuffix = mode.isBlank() ? "" : " (" + mode + ")";
         List<String> rows = new ArrayList<>();
-        for (JsonNode hit : node) {
+        for (JsonNode hit : hits) {
             rows.add("- " + hit.path("title").asText(hit.path("path").asText(""))
                     + " (`" + hit.path("path").asText("") + "`): "
                     + hit.path("excerpt").asText(""));
         }
-        return "Brain search results for \"" + query + "\":\n" + String.join("\n", rows);
+        return "Brain search results for \"" + query + "\"" + modeSuffix + ":\n" + String.join("\n", rows);
+    }
+
+    private JsonNode searchHits(JsonNode node) {
+        return node.isArray() ? node : node.path("hits");
+    }
+
+    private String resolveSearchMode(String value, String defaultMode) {
+        String resolved = firstNonBlank(value, defaultMode);
+        String normalized = resolved.toLowerCase(Locale.ROOT).replace('_', '-');
+        if (SEARCH_MODE_AUTO.equals(normalized) || SEARCH_MODE_FTS.equals(normalized)
+                || SEARCH_MODE_HYBRID.equals(normalized)) {
+            return normalized;
+        }
+        throw new IllegalArgumentException("Unsupported Brain search_mode: " + value
+                + " (expected auto, fts, or hybrid)");
     }
 
     private String formatIntellisearchDocuments(List<Map<String, Object>> documents) {

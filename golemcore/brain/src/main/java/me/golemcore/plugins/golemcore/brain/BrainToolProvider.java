@@ -26,6 +26,7 @@ public class BrainToolProvider implements ToolProvider {
     private static final String PARAM_OPERATION = "operation";
     private static final String PARAM_SPACE_SLUG = "space_slug";
     private static final String PARAM_QUERY = "query";
+    private static final String PARAM_SEARCH_MODE = "search_mode";
     private static final String PARAM_CONTEXT = "context";
     private static final String PARAM_LIMIT = "limit";
     private static final String PARAM_PATH = "path";
@@ -41,6 +42,12 @@ public class BrainToolProvider implements ToolProvider {
     private static final String PARAM_BEFORE_SLUG = "before_slug";
     private static final String PARAM_DYNAMIC_API_SLUG = "dynamic_api_slug";
     private static final String PARAM_USE_DYNAMIC_ENDPOINT = "use_dynamic_endpoint";
+    private static final String PARAM_TAGS = "tags";
+    private static final String PARAM_SUMMARY = "summary";
+    private static final String PARAM_PATCH_OPERATION = "patch_operation";
+    private static final String PARAM_HEADING = "heading";
+    private static final String PARAM_EXPECTED_REVISION = "expected_revision";
+    private static final String PARAM_OPERATIONS = "operations";
 
     private final BrainPluginConfigService configService;
     private final BrainService service;
@@ -69,6 +76,7 @@ public class BrainToolProvider implements ToolProvider {
                         "list_spaces",
                         "list_tree",
                         "search_pages",
+                        "get_search_status",
                         "intellisearch",
                         "read_page",
                         "create_page",
@@ -77,9 +85,16 @@ public class BrainToolProvider implements ToolProvider {
                         "ensure_page",
                         "move_page",
                         "copy_page",
-                        "list_assets")));
+                        "list_assets",
+                        "reindex_space",
+                        "reindex_all_spaces",
+                        "patch_page",
+                        "get_wiki_graph",
+                        "wiki_top_accessed",
+                        "wiki_tx")));
         properties.put(PARAM_SPACE_SLUG, stringProperty("Brain space slug. Defaults to plugin settings."));
         properties.put(PARAM_QUERY, stringProperty("Search query."));
+        properties.put(PARAM_SEARCH_MODE, searchModeProperty());
         properties.put(PARAM_CONTEXT, stringProperty("Natural language context for intellisearch."));
         properties.put(PARAM_LIMIT, integerProperty("Maximum number of results or pages."));
         properties.put(PARAM_PATH, stringProperty("Brain page path."));
@@ -97,6 +112,23 @@ public class BrainToolProvider implements ToolProvider {
         properties.put(PARAM_DYNAMIC_API_SLUG, stringProperty("Optional Brain dynamic API slug for intellisearch."));
         properties.put(PARAM_USE_DYNAMIC_ENDPOINT,
                 booleanProperty("Set false to force fallback search even when a dynamic endpoint is configured."));
+        properties.put(PARAM_TAGS, stringListProperty(
+                "Optional list of tags written into the page frontmatter by create_page or update_page."));
+        properties.put(PARAM_SUMMARY,
+                stringProperty("Optional page summary stored in the frontmatter by create_page or update_page."));
+        properties.put(PARAM_PATCH_OPERATION, Map.of(
+                TYPE, TYPE_STRING,
+                "enum", List.of("APPEND", "PREPEND", "REPLACE_SECTION"),
+                "description", "patch_page operation. REPLACE_SECTION requires heading."));
+        properties.put(PARAM_HEADING, stringProperty(
+                "Markdown heading text (without leading #) to target for patch_page REPLACE_SECTION."));
+        properties.put(PARAM_EXPECTED_REVISION,
+                stringProperty("Required revision string for patch_page optimistic concurrency."));
+        properties.put(PARAM_OPERATIONS, Map.of(
+                TYPE, "array",
+                "description",
+                "Ordered transaction operations for wiki_tx. Each item: {op: CREATE|UPDATE|DELETE, path, parentPath, slug, title, content, kind, expectedRevision}.",
+                "items", Map.of(TYPE, TYPE_OBJECT)));
 
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put(TYPE, TYPE_OBJECT);
@@ -112,11 +144,15 @@ public class BrainToolProvider implements ToolProvider {
                 requiredWhen("ensure_page", List.of(PARAM_PATH)),
                 requiredWhen("move_page", List.of(PARAM_PATH, PARAM_TARGET_PARENT_PATH)),
                 requiredWhen("copy_page", List.of(PARAM_PATH, PARAM_TARGET_PARENT_PATH)),
-                requiredWhen("list_assets", List.of(PARAM_PATH))));
+                requiredWhen("list_assets", List.of(PARAM_PATH)),
+                requiredWhen("patch_page",
+                        List.of(PARAM_PATH, PARAM_PATCH_OPERATION, PARAM_EXPECTED_REVISION)),
+                requiredWhen("wiki_tx", List.of(PARAM_OPERATIONS))));
 
         return ToolDefinition.builder()
                 .name("golemcore_brain")
-                .description("Use GolemCore Brain wiki pages, spaces, search, and optional dynamic intellisearch.")
+                .description(
+                        "Use GolemCore Brain wiki pages, spaces, hybrid search, intellisearch, section-level patch, atomic transactions, link graph, top-read tracking, and reindexing.")
                 .inputSchema(schema)
                 .build();
     }
@@ -142,7 +178,9 @@ public class BrainToolProvider implements ToolProvider {
             case "search_pages" -> service.searchPages(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_QUERY)),
+                    readString(parameters.get(PARAM_SEARCH_MODE)),
                     readInteger(parameters.get(PARAM_LIMIT)));
+            case "get_search_status" -> service.getSearchStatus(readString(parameters.get(PARAM_SPACE_SLUG)));
             case "intellisearch" -> service.intellisearch(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_CONTEXT)),
@@ -159,14 +197,32 @@ public class BrainToolProvider implements ToolProvider {
                     readString(parameters.get(PARAM_TITLE)),
                     readString(parameters.get(PARAM_SLUG)),
                     readString(parameters.get(PARAM_CONTENT)),
-                    readString(parameters.get(PARAM_KIND)));
+                    readString(parameters.get(PARAM_KIND)),
+                    readStringList(parameters.get(PARAM_TAGS)),
+                    readString(parameters.get(PARAM_SUMMARY)));
             case "update_page" -> service.updatePage(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_PATH)),
                     readString(parameters.get(PARAM_TITLE)),
                     readString(parameters.get(PARAM_SLUG)),
                     readString(parameters.get(PARAM_CONTENT)),
-                    readString(parameters.get(PARAM_REVISION)));
+                    readString(parameters.get(PARAM_REVISION)),
+                    readStringList(parameters.get(PARAM_TAGS)),
+                    readString(parameters.get(PARAM_SUMMARY)));
+            case "patch_page" -> service.patchPage(
+                    readString(parameters.get(PARAM_SPACE_SLUG)),
+                    readString(parameters.get(PARAM_PATH)),
+                    readString(parameters.get(PARAM_PATCH_OPERATION)),
+                    readString(parameters.get(PARAM_HEADING)),
+                    readString(parameters.get(PARAM_CONTENT)),
+                    readString(parameters.get(PARAM_EXPECTED_REVISION)));
+            case "get_wiki_graph" -> service.getWikiGraph(readString(parameters.get(PARAM_SPACE_SLUG)));
+            case "wiki_top_accessed" -> service.listTopAccessed(
+                    readString(parameters.get(PARAM_SPACE_SLUG)),
+                    readInteger(parameters.get(PARAM_LIMIT)));
+            case "wiki_tx" -> service.applyTransaction(
+                    readString(parameters.get(PARAM_SPACE_SLUG)),
+                    readMapList(parameters.get(PARAM_OPERATIONS)));
             case "delete_page" -> service.deletePage(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_PATH)));
@@ -189,6 +245,8 @@ public class BrainToolProvider implements ToolProvider {
             case "list_assets" -> service.listAssets(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_PATH)));
+            case "reindex_space" -> service.reindexSpace(readString(parameters.get(PARAM_SPACE_SLUG)));
+            case "reindex_all_spaces" -> service.reindexAllSpaces();
             default -> ToolResult.failure(ToolFailureKind.EXECUTION_FAILED,
                     "Unknown Brain operation: " + operation);
             };
@@ -223,6 +281,20 @@ public class BrainToolProvider implements ToolProvider {
         return Map.of(TYPE, TYPE_BOOLEAN, "description", description);
     }
 
+    private static Map<String, Object> searchModeProperty() {
+        return Map.of(
+                TYPE, TYPE_STRING,
+                "enum", List.of("auto", "fts", "hybrid"),
+                "description", "Brain search mode for search_pages. Defaults to auto.");
+    }
+
+    private static Map<String, Object> stringListProperty(String description) {
+        return Map.of(
+                TYPE, "array",
+                "description", description,
+                "items", Map.of(TYPE, TYPE_STRING));
+    }
+
     private String readString(Object value) {
         return value instanceof String text ? text : null;
     }
@@ -243,5 +315,39 @@ public class BrainToolProvider implements ToolProvider {
 
     private boolean readBoolean(Object value) {
         return !(value instanceof Boolean bool) || bool;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> readStringList(Object value) {
+        if (value instanceof List<?> list) {
+            List<String> result = new java.util.ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof String text && !text.isBlank()) {
+                    result.add(text);
+                }
+            }
+            return result;
+        }
+        return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> readMapList(Object value) {
+        if (value instanceof List<?> list) {
+            List<Map<String, Object>> result = new java.util.ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> map) {
+                    Map<String, Object> typed = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                        if (entry.getKey() instanceof String key) {
+                            typed.put(key, entry.getValue());
+                        }
+                    }
+                    result.add(typed);
+                }
+            }
+            return result;
+        }
+        return List.of();
     }
 }

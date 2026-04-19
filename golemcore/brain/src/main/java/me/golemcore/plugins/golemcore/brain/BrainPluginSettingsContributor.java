@@ -59,7 +59,7 @@ public class BrainPluginSettingsContributor implements PluginSettingsContributor
         values.put("allowWrite", Boolean.TRUE.equals(config.getAllowWrite()));
         return PluginSettingsSection.builder()
                 .title("GolemCore Brain")
-                .description("Configure the Brain wiki API tool and optional dynamic relevance endpoint.")
+                .description("Configure the Brain wiki API tool and optional dynamic intellisearch endpoint.")
                 .fields(List.of(
                         PluginSettingsField.builder()
                                 .key("enabled")
@@ -108,8 +108,8 @@ public class BrainPluginSettingsContributor implements PluginSettingsContributor
                         PluginSettingsField.builder()
                                 .key("allowWrite")
                                 .type("boolean")
-                                .label("Allow Write Operations")
-                                .description("Allow create, update, delete, ensure, move, and copy operations.")
+                                .label("Allow Mutating Operations")
+                                .description("Allow page mutations and search reindex requests.")
                                 .build()))
                 .values(values)
                 .build();
