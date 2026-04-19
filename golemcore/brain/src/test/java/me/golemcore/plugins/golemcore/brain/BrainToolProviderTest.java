@@ -146,6 +146,50 @@ class BrainToolProviderTest {
     }
 
     @Test
+    void shouldReadWikiGraphThroughBrainCrudApi() {
+        httpEngine.enqueueJson(200, """
+                {
+                  "orphans":[{"path":"ops/orphan","title":"Orphan"}],
+                  "dangling":[
+                    {"fromPath":"ops/runbook","toPath":"ops/missing"},
+                    {"fromPath":"ops/guide","toPath":"ops/todo"}
+                  ]
+                }
+                """);
+
+        ToolResult result = provider.execute(Map.of("operation", "get_wiki_graph")).join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("1 orphan"));
+        assertTrue(result.getOutput().contains("2 dangling"));
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("GET", request.method());
+        assertEquals("/api/spaces/docs/wiki/graph", request.target());
+    }
+
+    @Test
+    void shouldListTopAccessedPagesThroughBrainCrudApi() {
+        httpEngine.enqueueJson(200, """
+                {
+                  "items":[
+                    {"path":"ops/runbook","title":"Runbook","accessCount":7},
+                    {"path":"ops/guide","title":"Guide","accessCount":4}
+                  ]
+                }
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "wiki_top_accessed",
+                "limit", 2)).join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("2 top Brain page"));
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("GET", request.method());
+        assertEquals("/api/spaces/docs/wiki/access/top?limit=2", request.target());
+    }
+
+    @Test
     void shouldReadPageThroughBrainCrudApi() {
         httpEngine.enqueueJson(200, """
                 {"path":"ops/runbook","title":"Runbook","content":"# Runbook","kind":"PAGE"}
@@ -160,6 +204,32 @@ class BrainToolProviderTest {
         OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
         assertEquals("GET", request.method());
         assertEquals("/api/spaces/docs/page?path=ops%2Frunbook", request.target());
+    }
+
+    @Test
+    void shouldPatchPageThroughBrainCrudApiWhenWritesAllowed() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(200, """
+                {"path":"ops/runbook","title":"Runbook","content":"Updated","kind":"PAGE","revision":"rev-8"}
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "patch_page",
+                "path", "ops/runbook",
+                "patch_operation", "replace_section",
+                "heading", "Rollback",
+                "content", "Use the previous image.",
+                "expected_revision", "rev-7")).join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("Patched Brain page ops/runbook"));
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("PATCH", request.method());
+        assertEquals("/api/spaces/docs/page?path=ops%2Frunbook", request.target());
+        assertTrue(request.body().contains("\"operation\":\"REPLACE_SECTION\""));
+        assertTrue(request.body().contains("\"expectedRevision\":\"rev-7\""));
+        assertTrue(request.body().contains("\"heading\":\"Rollback\""));
+        assertTrue(request.body().contains("\"content\":\"Use the previous image.\""));
     }
 
     @Test
@@ -374,6 +444,39 @@ class BrainToolProviderTest {
         assertEquals("/api/admin/spaces/docs/reindex", spaceRequest.target());
         assertEquals("POST", allRequest.method());
         assertEquals("/api/admin/spaces/reindex", allRequest.target());
+    }
+
+    @Test
+    void shouldApplyWikiTransactionThroughBrainCrudApiWhenWritesAllowed() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(200, """
+                {
+                  "operations":[
+                    {"op":"UPDATE","path":"ops/runbook","revision":"rev-8"}
+                  ]
+                }
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "wiki_tx",
+                "operations", List.of(Map.of(
+                        "op", "UPDATE",
+                        "path", "ops/runbook",
+                        "title", "Runbook",
+                        "content", "Updated runbook",
+                        "kind", "PAGE",
+                        "expectedRevision", "rev-7"))))
+                .join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("1 operation"));
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("POST", request.method());
+        assertEquals("/api/spaces/docs/wiki/tx", request.target());
+        assertTrue(request.body().contains("\"operations\""));
+        assertTrue(request.body().contains("\"op\":\"UPDATE\""));
+        assertTrue(request.body().contains("\"path\":\"ops/runbook\""));
+        assertTrue(request.body().contains("\"expectedRevision\":\"rev-7\""));
     }
 
     @Test
