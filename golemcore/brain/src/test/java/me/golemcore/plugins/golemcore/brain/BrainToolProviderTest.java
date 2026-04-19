@@ -59,15 +59,25 @@ class BrainToolProviderTest {
                 "ensure_page",
                 "move_page",
                 "copy_page",
-                "list_assets"), operation.get("enum"));
+                "list_assets",
+                "reindex_space",
+                "reindex_all_spaces",
+                "patch_page",
+                "get_wiki_graph",
+                "wiki_top_accessed",
+                "wiki_tx"), operation.get("enum"));
     }
 
     @Test
     void shouldSearchPagesThroughBrainCrudApi() {
         httpEngine.enqueueJson(200, """
-                [
-                  {"path":"ops/runbook","title":"Runbook","excerpt":"deploy safely","kind":"PAGE"}
-                ]
+                {
+                  "mode":"fts",
+                  "semanticReady":false,
+                  "hits":[
+                    {"path":"ops/runbook","title":"Runbook","excerpt":"deploy safely","kind":"PAGE"}
+                  ]
+                }
                 """);
 
         ToolResult result = provider.execute(Map.of(
@@ -78,9 +88,33 @@ class BrainToolProviderTest {
         assertTrue(result.isSuccess());
         assertTrue(result.getOutput().contains("Runbook"));
         OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
-        assertEquals("GET", request.method());
-        assertEquals("/api/spaces/docs/search?q=deploy&limit=2", request.target());
+        assertEquals("POST", request.method());
+        assertEquals("/api/spaces/docs/search", request.target());
         assertEquals("Bearer brain-token", request.header("Authorization"));
+        assertTrue(request.body().contains("\"query\":\"deploy\""));
+        assertTrue(request.body().contains("\"mode\":\"fts\""));
+        assertTrue(request.body().contains("\"limit\":2"));
+    }
+
+    @Test
+    void shouldPassRequestedSearchModeToBrainSearchApi() {
+        httpEngine.enqueueJson(200, """
+                {
+                  "mode":"hybrid",
+                  "semanticReady":true,
+                  "hits":[]
+                }
+                """);
+
+        ToolResult result = provider.execute(Map.of(
+                "operation", "search_pages",
+                "query", "incident response",
+                "search_mode", "hybrid")).join();
+
+        assertTrue(result.isSuccess());
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("/api/spaces/docs/search", request.target());
+        assertTrue(request.body().contains("\"mode\":\"hybrid\""));
     }
 
     @Test
@@ -224,7 +258,7 @@ class BrainToolProviderTest {
                 "path", "ops/runbook")).join();
 
         assertFalse(result.isSuccess());
-        assertTrue(result.getError().contains("write operations are disabled"));
+        assertTrue(result.getError().contains("mutating operations are disabled"));
         assertEquals(0, httpEngine.getRequestCount());
     }
 
@@ -259,9 +293,14 @@ class BrainToolProviderTest {
     @Test
     void shouldFallbackToSearchAndReadPagesForIntellisearchWhenDynamicEndpointIsAbsent() {
         httpEngine.enqueueJson(200, """
-                [
-                  {"path":"ops/runbook","title":"Runbook","excerpt":"rollback steps","kind":"PAGE"}
-                ]
+                {
+                  "mode":"fts-fallback",
+                  "semanticReady":false,
+                  "fallbackReason":"embedding-model-not-configured",
+                  "hits":[
+                    {"path":"ops/runbook","title":"Runbook","excerpt":"rollback steps","kind":"PAGE"}
+                  ]
+                }
                 """);
         httpEngine.enqueueJson(200, """
                 {"path":"ops/runbook","title":"Runbook","content":"Rollback by reverting the release.","kind":"PAGE"}
@@ -276,8 +315,37 @@ class BrainToolProviderTest {
         assertTrue(result.getOutput().contains("Rollback by reverting"));
         OkHttpMockEngine.CapturedRequest searchRequest = httpEngine.takeRequest();
         OkHttpMockEngine.CapturedRequest readRequest = httpEngine.takeRequest();
-        assertEquals("/api/spaces/docs/search?q=Need%20deployment%20rollback%20docs&limit=1", searchRequest.target());
+        assertEquals("POST", searchRequest.method());
+        assertEquals("/api/spaces/docs/search", searchRequest.target());
+        assertTrue(searchRequest.body().contains("\"query\":\"Need deployment rollback docs\""));
+        assertTrue(searchRequest.body().contains("\"mode\":\"hybrid\""));
+        assertTrue(searchRequest.body().contains("\"limit\":1"));
         assertEquals("/api/spaces/docs/page?path=ops%2Frunbook", readRequest.target());
+    }
+
+    @Test
+    void shouldQueueReindexRequestsWhenMutatingOperationsAreAllowed() {
+        config.setAllowWrite(true);
+        httpEngine.enqueueJson(202, """
+                {"status":"queued","spacesQueued":1}
+                """);
+        httpEngine.enqueueJson(202, """
+                {"status":"queued","spacesQueued":3}
+                """);
+
+        ToolResult spaceResult = provider.execute(Map.of("operation", "reindex_space")).join();
+        ToolResult allResult = provider.execute(Map.of("operation", "reindex_all_spaces")).join();
+
+        assertTrue(spaceResult.isSuccess());
+        assertTrue(allResult.isSuccess());
+        assertTrue(spaceResult.getOutput().contains("space docs"));
+        assertTrue(allResult.getOutput().contains("3 space"));
+        OkHttpMockEngine.CapturedRequest spaceRequest = httpEngine.takeRequest();
+        OkHttpMockEngine.CapturedRequest allRequest = httpEngine.takeRequest();
+        assertEquals("POST", spaceRequest.method());
+        assertEquals("/api/admin/spaces/docs/reindex", spaceRequest.target());
+        assertEquals("POST", allRequest.method());
+        assertEquals("/api/admin/spaces/reindex", allRequest.target());
     }
 
     @Test
