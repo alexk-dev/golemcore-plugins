@@ -75,12 +75,26 @@ public class BrainService {
     public ToolResult searchPages(String spaceSlug, String query, String searchMode, Integer limit) {
         String resolvedQuery = requireText(query, "query");
         String space = resolveSpace(spaceSlug);
-        String resolvedMode = resolveSearchMode(searchMode, SEARCH_MODE_FTS);
+        String resolvedMode = resolveSearchMode(searchMode, SEARCH_MODE_AUTO);
         int resolvedLimit = resolveLimit(limit, DEFAULT_SEARCH_LIMIT);
         try {
             JsonNode node = executeJson("POST", searchUrl(space),
                     searchPayload(resolvedQuery, resolvedMode, resolvedLimit));
             return ToolResult.success(formatSearchResults(resolvedQuery, node), nodeToData(node));
+        } catch (IOException | IllegalStateException exception) {
+            return executionFailure(exception.getMessage());
+        }
+    }
+
+    public ToolResult getSearchStatus(String spaceSlug) {
+        String space = resolveSpace(spaceSlug);
+        try {
+            JsonNode node = executeJson("GET", searchStatusUrl(space), null);
+            String output = "Brain search status for " + space
+                    + ": ready=" + node.path("ready").asBoolean(false)
+                    + ", indexedDocuments=" + node.path("indexedDocuments").asInt(0)
+                    + ", embeddingsReady=" + node.path("embeddingsReady").asBoolean(false);
+            return ToolResult.success(output, nodeToData(node));
         } catch (IOException | IllegalStateException exception) {
             return executionFailure(exception.getMessage());
         }
@@ -515,6 +529,10 @@ public class BrainService {
 
     private HttpUrl searchUrl(String space) {
         return spaceUrl(space, "/search");
+    }
+
+    private HttpUrl searchStatusUrl(String space) {
+        return spaceUrl(space, "/search/status");
     }
 
     private HttpUrl adminSpaceReindexUrl(String space) {

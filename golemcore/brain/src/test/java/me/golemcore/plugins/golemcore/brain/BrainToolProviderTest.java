@@ -51,6 +51,7 @@ class BrainToolProviderTest {
                 "list_spaces",
                 "list_tree",
                 "search_pages",
+                "get_search_status",
                 "intellisearch",
                 "read_page",
                 "create_page",
@@ -92,7 +93,7 @@ class BrainToolProviderTest {
         assertEquals("/api/spaces/docs/search", request.target());
         assertEquals("Bearer brain-token", request.header("Authorization"));
         assertTrue(request.body().contains("\"query\":\"deploy\""));
-        assertTrue(request.body().contains("\"mode\":\"fts\""));
+        assertTrue(request.body().contains("\"mode\":\"auto\""));
         assertTrue(request.body().contains("\"limit\":2"));
     }
 
@@ -115,6 +116,33 @@ class BrainToolProviderTest {
         OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
         assertEquals("/api/spaces/docs/search", request.target());
         assertTrue(request.body().contains("\"mode\":\"hybrid\""));
+    }
+
+    @Test
+    void shouldReadSearchStatusThroughBrainCrudApi() {
+        httpEngine.enqueueJson(200, """
+                {
+                  "mode":"hybrid",
+                  "ready":true,
+                  "indexedDocuments":12,
+                  "fullTextIndexedDocuments":12,
+                  "embeddingDocuments":12,
+                  "embeddingIndexedDocuments":10,
+                  "staleDocuments":2,
+                  "embeddingsReady":false,
+                  "embeddingModelId":"text-embedding-3-small"
+                }
+                """);
+
+        ToolResult result = provider.execute(Map.of("operation", "get_search_status")).join();
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getOutput().contains("ready=true"));
+        assertTrue(result.getOutput().contains("indexedDocuments=12"));
+        assertTrue(result.getOutput().contains("embeddingsReady=false"));
+        OkHttpMockEngine.CapturedRequest request = httpEngine.takeRequest();
+        assertEquals("GET", request.method());
+        assertEquals("/api/spaces/docs/search/status", request.target());
     }
 
     @Test

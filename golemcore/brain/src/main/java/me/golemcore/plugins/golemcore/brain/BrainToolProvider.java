@@ -76,6 +76,7 @@ public class BrainToolProvider implements ToolProvider {
                         "list_spaces",
                         "list_tree",
                         "search_pages",
+                        "get_search_status",
                         "intellisearch",
                         "read_page",
                         "create_page",
@@ -179,6 +180,7 @@ public class BrainToolProvider implements ToolProvider {
                     readString(parameters.get(PARAM_QUERY)),
                     readString(parameters.get(PARAM_SEARCH_MODE)),
                     readInteger(parameters.get(PARAM_LIMIT)));
+            case "get_search_status" -> service.getSearchStatus(readString(parameters.get(PARAM_SPACE_SLUG)));
             case "intellisearch" -> service.intellisearch(
                     readString(parameters.get(PARAM_SPACE_SLUG)),
                     readString(parameters.get(PARAM_CONTEXT)),
@@ -283,7 +285,7 @@ public class BrainToolProvider implements ToolProvider {
         return Map.of(
                 TYPE, TYPE_STRING,
                 "enum", List.of("auto", "fts", "hybrid"),
-                "description", "Brain search mode for search_pages. Defaults to fts.");
+                "description", "Brain search mode for search_pages. Defaults to auto.");
     }
 
     private static Map<String, Object> stringListProperty(String description) {
