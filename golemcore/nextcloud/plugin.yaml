@@ -1,0 +1,12 @@
+id: golemcore/nextcloud
+provider: golemcore
+name: nextcloud
+version: 1.0.0
+pluginApiVersion: 1
+engineVersion: ">=0.0.0 <1.0.0"
+entrypoint: me.golemcore.plugins.golemcore.nextcloud.NextcloudPluginBootstrap
+description: Nextcloud WebDAV file plugin backed by the standard files endpoint.
+sourceUrl: https://github.com/alexk-dev/golemcore-plugins/tree/main/golemcore/nextcloud
+license: Apache-2.0
+maintainers:
+  - alexk-dev
